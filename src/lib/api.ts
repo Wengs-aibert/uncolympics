@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Tournament, Player, Team, LeaderVote, GameType, Game } from '../types'
+import type { Tournament, Player, Team, LeaderVote, GameType, Game, PlayerStat, GameResult } from '../types'
 
 // API Functions
 
@@ -725,4 +725,150 @@ export async function pickGame(
     game: newGame,
     tournament: updatedTournament
   };
+}
+
+// Sprint 4: Game Play Functions
+
+export async function fetchGameState(gameId: string): Promise<{
+  game: Game;
+  gameType: GameType;
+  stats: PlayerStat[];
+  result: GameResult | null;
+  players: Player[];
+}> {
+  // Get game row with game_type join
+  const { data: game, error: gameError } = await supabase
+    .from('games')
+    .select(`
+      *,
+      game_type:game_types(*)
+    `)
+    .eq('id', gameId)
+    .single();
+
+  if (gameError || !game) {
+    throw new Error(`Failed to fetch game: ${gameError?.message}`);
+  }
+
+  // Get all player_stats for this game
+  const { data: stats, error: statsError } = await supabase
+    .from('player_stats')
+    .select('*')
+    .eq('game_id', gameId)
+    .order('submitted_at');
+
+  if (statsError) {
+    throw new Error(`Failed to fetch stats: ${statsError.message}`);
+  }
+
+  // Get game_results for this game (may be null)
+  const { data: result, error: resultError } = await supabase
+    .from('game_results')
+    .select('*')
+    .eq('game_id', gameId)
+    .single();
+
+  // resultError is expected if no result exists yet
+  if (resultError && resultError.code !== 'PGRST116') {
+    throw new Error(`Failed to fetch result: ${resultError.message}`);
+  }
+
+  // Get all players in the tournament
+  const { data: players, error: playersError } = await supabase
+    .from('players')
+    .select('*')
+    .eq('tournament_id', game.tournament_id)
+    .order('name');
+
+  if (playersError) {
+    throw new Error(`Failed to fetch players: ${playersError.message}`);
+  }
+
+  return {
+    game,
+    gameType: game.game_type as GameType,
+    stats: stats || [],
+    result: result || null,
+    players: players || []
+  };
+}
+
+export async function submitPlayerStats(
+  gameId: string,
+  playerId: string,
+  stats: { key: string; value: number }[]
+): Promise<PlayerStat[]> {
+  const statRecords = stats.map(stat => ({
+    game_id: gameId,
+    player_id: playerId,
+    stat_key: stat.key,
+    stat_value: stat.value
+  }));
+
+  // Upsert each stat with onConflict handling
+  const { data: upsertedStats, error } = await supabase
+    .from('player_stats')
+    .upsert(statRecords, {
+      onConflict: 'game_id,player_id,stat_key'
+    })
+    .select();
+
+  if (error || !upsertedStats) {
+    throw new Error(`Failed to submit stats: ${error?.message}`);
+  }
+
+  return upsertedStats;
+}
+
+export async function submitGameResult(
+  gameId: string,
+  winningTeamId: string | null,
+  resultData: Record<string, any>
+): Promise<GameResult> {
+  const { data: result, error } = await supabase
+    .from('game_results')
+    .insert({
+      game_id: gameId,
+      winning_team_id: winningTeamId,
+      result_data: resultData
+    })
+    .select()
+    .single();
+
+  if (error || !result) {
+    throw new Error(`Failed to submit result: ${error?.message}`);
+  }
+
+  return result;
+}
+
+export async function endGame(
+  tournamentId: string,
+  gameId: string
+): Promise<{ game: Game; tournament: Tournament }> {
+  // Update game status to 'titles'
+  const { data: game, error: gameError } = await supabase
+    .from('games')
+    .update({ status: 'titles' })
+    .eq('id', gameId)
+    .select()
+    .single();
+
+  if (gameError || !game) {
+    throw new Error(`Failed to update game status: ${gameError?.message}`);
+  }
+
+  // Update tournament status to 'scoring'
+  const { data: tournament, error: tournamentError } = await supabase
+    .from('tournaments')
+    .update({ status: 'scoring' })
+    .eq('id', tournamentId)
+    .select()
+    .single();
+
+  if (tournamentError || !tournament) {
+    throw new Error(`Failed to update tournament status: ${tournamentError?.message}`);
+  }
+
+  return { game, tournament };
 }

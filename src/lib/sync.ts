@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import useGameStore from '../stores/gameStore';
-import type { Tournament, Player, Team, LeaderVote, Game } from '../types';
+import type { Tournament, Player, Team, LeaderVote, Game, PlayerStat, GameResult } from '../types';
 
 export function subscribeTournament(tournamentId: string) {
   const channel = supabase.channel(`tournament:${tournamentId}`)
@@ -97,4 +97,70 @@ export function subscribeTournament(tournamentId: string) {
   return () => {
     supabase.removeChannel(channel);
   };
+}
+
+// Sprint 4: Game-specific subscription
+export function subscribeGame(gameId: string, _tournamentId: string) {
+  const channel = supabase.channel(`game:${gameId}`)
+    .on('postgres_changes', {
+      event: '*', 
+      schema: 'public', 
+      table: 'player_stats', 
+      filter: `game_id=eq.${gameId}`
+    }, (payload) => {
+      const store = useGameStore.getState();
+      
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        const stat = payload.new as PlayerStat;
+        store.addGameStat(stat);
+        
+        // Find player name for live feed
+        const player = store.players.find(p => p.id === stat.player_id);
+        if (player) {
+          store.addFeedItem({
+            playerName: player.name,
+            statKey: stat.stat_key,
+            statValue: stat.stat_value,
+            statLabel: stat.stat_key, // Could be enhanced to map to human-readable labels
+            timestamp: new Date().toISOString()
+          });
+        }
+      }
+    })
+    .on('postgres_changes', {
+      event: '*', 
+      schema: 'public', 
+      table: 'game_results', 
+      filter: `game_id=eq.${gameId}`
+    }, (payload) => {
+      const store = useGameStore.getState();
+      
+      if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
+        store.setCurrentGameResult(payload.new as GameResult);
+      }
+    })
+    .on('postgres_changes', {
+      event: '*', 
+      schema: 'public', 
+      table: 'games', 
+      filter: `id=eq.${gameId}`
+    }, (payload) => {
+      const store = useGameStore.getState();
+      
+      if (payload.eventType === 'UPDATE') {
+        const game = payload.new as Game;
+        store.setGame(game);
+        
+        // Navigate to title reveal when status changes to 'titles'
+        if (game.status === 'titles') {
+          const tournament = store.tournament;
+          if (tournament) {
+            window.location.href = `/game/${tournament.room_code}/reveal/${gameId}`;
+          }
+        }
+      }
+    })
+    .subscribe();
+    
+  return () => supabase.removeChannel(channel);
 }

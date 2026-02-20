@@ -1,16 +1,402 @@
-import { useParams } from 'react-router-dom'
+import { useState, useEffect, useMemo } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import useGameStore from '../stores/gameStore';
+import { fetchGameState, submitPlayerStats, submitGameResult, endGame } from '../lib/api';
+import { subscribeGame } from '../lib/sync';
+import DynamicStatInput from '../components/game/DynamicStatInput';
+import DynamicRefereeInput from '../components/game/DynamicRefereeInput';
+import type { GameType } from '../types';
 
-function GamePlay() {
-  const { roomCode, gameId } = useParams<{ roomCode: string; gameId: string }>()
-  
-  return (
-    <div>
-      <h1>Game Play</h1>
-      <p>Room Code: {roomCode}</p>
-      <p>Game ID: {gameId}</p>
-      <p>Live game - input stats and results</p>
-    </div>
-  )
+interface StatInputDef {
+  key: string;
+  label: string;
+  type: 'number' | 'boolean';
+  min?: number;
+  max?: number;
 }
 
-export default GamePlay
+interface RefereeInputDef {
+  key: string;
+  label: string;
+  type: 'team_select' | 'player_select' | 'team_scores' | 'player_times';
+}
+
+function GamePlay() {
+  const { gameId } = useParams<{ roomCode: string; gameId: string }>();
+  const navigate = useNavigate();
+  
+  const {
+    tournament,
+    currentPlayer,
+    players,
+    teams,
+    currentGame,
+    liveFeed,
+    setGame,
+    setCurrentGameStats,
+    setCurrentGameResult,
+    clearGameState
+  } = useGameStore();
+  
+  // Local state
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [gameType, setGameType] = useState<GameType | null>(null);
+  const [playerStatValues, setPlayerStatValues] = useState<Record<string, number>>({});
+  const [refereeValues, setRefereeValues] = useState<Record<string, any>>({});
+  const [showEndGameModal, setShowEndGameModal] = useState(false);
+  const [rulesExpanded, setRulesExpanded] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Load game state on mount
+  useEffect(() => {
+    if (!gameId) return;
+    
+    let unsubscribe: (() => void) | null = null;
+    
+    async function loadGameState() {
+      if (!gameId) return; // Add this check for TypeScript
+      
+      try {
+        setLoading(true);
+        setError(null);
+        
+        const gameState = await fetchGameState(gameId);
+        
+        // Update store
+        setGame(gameState.game);
+        setCurrentGameStats(gameState.stats);
+        setCurrentGameResult(gameState.result);
+        setGameType(gameState.gameType);
+        
+        // Set up realtime subscription
+        if (gameState.game.tournament_id) {
+          unsubscribe = subscribeGame(gameId, gameState.game.tournament_id);
+        }
+        
+      } catch (err) {
+        console.error('Failed to load game state:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load game');
+      } finally {
+        setLoading(false);
+      }
+    }
+    
+    loadGameState();
+    
+    return () => {
+      unsubscribe?.();
+      clearGameState();
+    };
+  }, [gameId, setGame, setCurrentGameStats, setCurrentGameResult, clearGameState]);
+
+  // Navigate to title reveal when game status changes to 'titles'
+  useEffect(() => {
+    if (currentGame?.status === 'titles' && tournament?.room_code && gameId) {
+      navigate(`/game/${tournament.room_code}/reveal/${gameId}`);
+    }
+  }, [currentGame?.status, tournament?.room_code, gameId, navigate]);
+
+  // Parse player and referee inputs from gameType
+  const playerInputs: StatInputDef[] = useMemo(() => {
+    if (!gameType?.player_inputs) return [];
+    
+    // Convert the JSON structure to StatInputDef array
+    if (Array.isArray(gameType.player_inputs)) {
+      return gameType.player_inputs as StatInputDef[];
+    }
+    
+    // Handle object format
+    return Object.entries(gameType.player_inputs).map(([key, def]: [string, any]) => ({
+      key,
+      label: def.label || key,
+      type: def.type || 'number',
+      min: def.min,
+      max: def.max
+    }));
+  }, [gameType]);
+
+  const refereeInputs: RefereeInputDef[] = useMemo(() => {
+    if (!gameType?.referee_inputs) return [];
+    
+    // Convert the JSON structure to RefereeInputDef array
+    if (Array.isArray(gameType.referee_inputs)) {
+      return gameType.referee_inputs as RefereeInputDef[];
+    }
+    
+    // Handle object format
+    return Object.entries(gameType.referee_inputs).map(([key, def]: [string, any]) => ({
+      key,
+      label: def.label || key,
+      type: def.type || 'team_select'
+    }));
+  }, [gameType]);
+
+  // Determine user role and capabilities
+  const isReferee = currentPlayer?.role === 'referee';
+  const isPlayer = currentPlayer?.role === 'player';
+  const hasPlayerInputs = playerInputs.length > 0;
+
+  // Find teams for the game
+  const gameTeams = teams.filter(team => 
+    players.some(player => player.team_id === team.id && player.role === 'player')
+  );
+
+  const handlePlayerStatChange = (key: string, value: number) => {
+    setPlayerStatValues(prev => ({ ...prev, [key]: value }));
+    setSubmitSuccess(false); // Clear success message when values change
+  };
+
+  const handleRefereeValueChange = (key: string, value: any) => {
+    setRefereeValues(prev => ({ ...prev, [key]: value }));
+  };
+
+  const submitPlayerStatsHandler = async () => {
+    if (!gameId || !currentPlayer) return;
+    
+    try {
+      setSubmitting(true);
+      setError(null);
+      
+      const stats = Object.entries(playerStatValues).map(([key, value]) => ({
+        key,
+        value
+      }));
+      
+      await submitPlayerStats(gameId, currentPlayer.id, stats);
+      setSubmitSuccess(true);
+      
+      // Clear success message after 3 seconds
+      setTimeout(() => setSubmitSuccess(false), 3000);
+      
+    } catch (err) {
+      console.error('Failed to submit stats:', err);
+      setError(err instanceof Error ? err.message : 'Failed to submit stats');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleEndGame = async () => {
+    if (!gameId || !tournament) return;
+    
+    try {
+      setSubmitting(true);
+      setError(null);
+      
+      // Submit referee result first if there are referee values
+      if (Object.keys(refereeValues).length > 0) {
+        const winningTeamId = refereeValues.winner || null;
+        await submitGameResult(gameId, winningTeamId, refereeValues);
+      }
+      
+      // End the game
+      await endGame(tournament.id, gameId);
+      setShowEndGameModal(false);
+      
+    } catch (err) {
+      console.error('Failed to end game:', err);
+      setError(err instanceof Error ? err.message : 'Failed to end game');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-lg">Loading game...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!gameType || !currentGame) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-lg text-red-400">Game not found</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white">
+      <div className="container mx-auto px-4 py-8 max-w-4xl">
+        
+        {/* Header */}
+        <div className="text-center mb-8">
+          <div className="text-6xl mb-2">{gameType.emoji}</div>
+          <h1 className="text-3xl font-bold mb-2">{gameType.name}</h1>
+          <div className="text-lg text-gray-400 mb-4">
+            Round {currentGame.game_order} / {tournament?.num_games || '?'}
+          </div>
+          {gameTeams.length >= 2 && (
+            <div className="text-xl font-semibold text-blue-400">
+              {gameTeams[0].name} vs {gameTeams[1].name}
+            </div>
+          )}
+        </div>
+
+        {/* Error message */}
+        {error && (
+          <div className="bg-red-600 text-white p-4 rounded-lg mb-6">
+            {error}
+          </div>
+        )}
+
+        {/* Rules Card */}
+        <div className="bg-gray-800 rounded-lg p-6 mb-8">
+          <button
+            onClick={() => setRulesExpanded(!rulesExpanded)}
+            className="flex items-center justify-between w-full text-left"
+          >
+            <h2 className="text-xl font-semibold">Game Rules</h2>
+            <span className="text-2xl">
+              {rulesExpanded ? '−' : '+'}
+            </span>
+          </button>
+          {rulesExpanded && (
+            <div className="mt-4 text-gray-300 whitespace-pre-wrap">
+              {gameType.description}
+            </div>
+          )}
+        </div>
+
+        {/* Player Stats Section */}
+        {isPlayer && hasPlayerInputs && (
+          <div className="bg-gray-800 rounded-lg p-6 mb-8">
+            <h2 className="text-xl font-semibold mb-6 text-center">── YOUR STATS ──</h2>
+            
+            <DynamicStatInput
+              inputs={playerInputs}
+              values={playerStatValues}
+              onChange={handlePlayerStatChange}
+            />
+            
+            <div className="mt-8 text-center">
+              <button
+                onClick={submitPlayerStatsHandler}
+                disabled={submitting}
+                className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? 'Submitting...' : 'Submit Stats'}
+              </button>
+              
+              {submitSuccess && (
+                <div className="mt-4 text-green-400 font-semibold">
+                  ✅ Stats submitted!
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* No Player Stats Message */}
+        {isPlayer && !hasPlayerInputs && (
+          <div className="bg-gray-800 rounded-lg p-6 mb-8 text-center">
+            <div className="text-4xl mb-4">📺</div>
+            <p className="text-lg text-gray-300">
+              No stats to report for this game — enjoy watching!
+            </p>
+          </div>
+        )}
+
+        {/* Live Feed */}
+        <div className="bg-gray-800 rounded-lg p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-6 text-center">── LIVE FEED ──</h2>
+          
+          <div className="space-y-3 max-h-64 overflow-y-auto">
+            {liveFeed.length === 0 ? (
+              <p className="text-gray-400 text-center py-4">
+                No activity yet...
+              </p>
+            ) : (
+              liveFeed.map((item, index) => (
+                <div key={index} className="bg-gray-700 rounded p-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="font-semibold text-blue-400">{item.playerName}</span>
+                      <span className="mx-2">•</span>
+                      <span className="text-gray-300">{item.statLabel}: </span>
+                      <span className="font-bold text-white">{item.statValue}</span>
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {new Date(item.timestamp).toLocaleTimeString()}
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Referee Controls */}
+        {isReferee && (
+          <div className="bg-red-900/20 border border-red-500 rounded-lg p-6">
+            <h2 className="text-xl font-semibold mb-6 text-center text-red-400">
+              ═══ REFEREE CONTROLS ═══
+            </h2>
+            
+            {refereeInputs.length > 0 && (
+              <div className="mb-8">
+                <DynamicRefereeInput
+                  inputs={refereeInputs}
+                  teams={gameTeams}
+                  players={players}
+                  values={refereeValues}
+                  onChange={handleRefereeValueChange}
+                />
+              </div>
+            )}
+            
+            <div className="text-center">
+              <button
+                onClick={() => setShowEndGameModal(true)}
+                disabled={submitting}
+                className="bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {submitting ? 'Ending Game...' : 'END GAME'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* End Game Confirmation Modal */}
+        {showEndGameModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div className="bg-gray-800 rounded-lg p-8 max-w-md mx-4">
+              <h3 className="text-xl font-semibold mb-4">End Game?</h3>
+              <p className="text-gray-300 mb-6">
+                Are you sure you want to end this game? Titles will be calculated and revealed.
+              </p>
+              
+              <div className="flex space-x-4">
+                <button
+                  onClick={() => setShowEndGameModal(false)}
+                  className="flex-1 bg-gray-600 hover:bg-gray-500 text-white px-4 py-2 rounded transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleEndGame}
+                  disabled={submitting}
+                  className="flex-1 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submitting ? 'Ending...' : 'End Game'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+    </div>
+  );
+}
+
+export default GamePlay;

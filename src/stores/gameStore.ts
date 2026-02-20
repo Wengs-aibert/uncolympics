@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Tournament, Player, Team, Game, Title, PlayerStat, LeaderVote, GameType } from '../types'
+import type { Tournament, Player, Team, Game, Title, PlayerStat, LeaderVote, GameType, GameResult } from '../types'
 
 interface GameStore {
   // State
@@ -18,6 +18,17 @@ interface GameStore {
   pickedGames: Game[]
   currentPickTeam: string | null
   currentRound: number
+  
+  // Sprint 4: Game Play state
+  currentGameStats: PlayerStat[]
+  currentGameResult: GameResult | null
+  liveFeed: { 
+    playerName: string
+    statKey: string
+    statValue: number
+    statLabel: string
+    timestamp: string
+  }[]
   
   // Actions
   setTournament: (tournament: Tournament) => void
@@ -51,6 +62,19 @@ interface GameStore {
   setCurrentRound: (round: number) => void
   addPickedGame: (game: Game) => void
   
+  // Sprint 4: Game Play actions
+  setCurrentGameStats: (stats: PlayerStat[]) => void
+  addGameStat: (stat: PlayerStat) => void
+  setCurrentGameResult: (result: GameResult | null) => void
+  addFeedItem: (item: { 
+    playerName: string
+    statKey: string
+    statValue: number
+    statLabel: string
+    timestamp: string
+  }) => void
+  clearGameState: () => void
+  
   // Legacy actions (keeping for existing functionality)
   setTeam: (playerId: string, teamId: string) => void
   setGame: (game: Game) => void
@@ -76,6 +100,11 @@ const useGameStore = create<GameStore>((set) => ({
   pickedGames: [],
   currentPickTeam: null,
   currentRound: 1,
+  
+  // Sprint 4: Game Play initial state
+  currentGameStats: [],
+  currentGameResult: null,
+  liveFeed: [],
   
   // Actions
   setTournament: (tournament) => set({ tournament }),
@@ -154,6 +183,36 @@ const useGameStore = create<GameStore>((set) => ({
     availableGames: state.availableGames.filter(gt => gt.id !== game.game_type_id)
   })),
   
+  // Sprint 4: Game Play actions
+  setCurrentGameStats: (stats) => set({ currentGameStats: stats }),
+  
+  addGameStat: (stat) => set((state) => {
+    // Update or add stat in currentGameStats
+    const existingIndex = state.currentGameStats.findIndex(
+      s => s.game_id === stat.game_id && 
+           s.player_id === stat.player_id && 
+           s.stat_key === stat.stat_key
+    );
+    
+    const updatedStats = existingIndex >= 0 
+      ? state.currentGameStats.map((s, i) => i === existingIndex ? stat : s)
+      : [...state.currentGameStats, stat];
+      
+    return { currentGameStats: updatedStats };
+  }),
+  
+  setCurrentGameResult: (result) => set({ currentGameResult: result }),
+  
+  addFeedItem: (item) => set((state) => ({
+    liveFeed: [item, ...state.liveFeed].slice(0, 50) // Keep last 50 items
+  })),
+  
+  clearGameState: () => set({
+    currentGameStats: [],
+    currentGameResult: null,
+    liveFeed: []
+  }),
+  
   // Legacy actions (keeping for existing functionality)
   setTeam: (playerId, teamId) => set((state) => ({
     players: state.players.map(p => 
@@ -185,7 +244,11 @@ const useGameStore = create<GameStore>((set) => ({
     availableGames: [],
     pickedGames: [],
     currentPickTeam: null,
-    currentRound: 1
+    currentRound: 1,
+    // Reset Sprint 4 state too
+    currentGameStats: [],
+    currentGameResult: null,
+    liveFeed: []
   })
 }))
 

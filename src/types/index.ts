@@ -60,6 +60,13 @@ export interface PlayerStat {
   submitted_at: string
 }
 
+export interface GameResult {
+  id: string
+  game_id: string
+  winning_team_id: string | null
+  result_data: Record<string, any>
+}
+
 // New Sprint 2 type
 export interface LeaderVote {
   id: string
