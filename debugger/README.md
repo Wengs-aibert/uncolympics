@@ -23,6 +23,9 @@ Each bug file includes:
 | 005 | [Vote DELETE Policy Missing](005-vote-delete-policy-missing.md) | ⚠️ Medium | 2 | ✅ Fixed |
 | 006 | [Teams Missing created_at](006-teams-missing-created-at.md) | ⚠️ Medium | 2 | ✅ Fixed |
 | 007 | [Realtime Not Enabled](007-realtime-not-enabled.md) | 🔴 Critical | 2 | ✅ Fixed |
+| 008 | [game_types Missing created_at](008-game-types-missing-created-at.md) | ⚠️ Medium | 3 | ✅ Fixed |
+| 009 | [Duplicate Game Pick No Constraint](009-duplicate-game-pick-no-constraint.md) | ⚠️ Medium | 3 | ✅ Fixed |
+| 010 | [Games Missing DELETE Policy](010-games-missing-delete-policy.md) | ⚠️ Medium | 3 | ✅ Fixed |
 
 ## Process (v1)
 
