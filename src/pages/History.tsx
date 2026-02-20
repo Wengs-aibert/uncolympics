@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { fetchTournamentHistory, fetchTournamentDetail } from '../lib/api'
-import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import type { Tournament, Team, Player, GameWithType, TitleWithPlayer } from '../types'
 
 interface TournamentHistoryEntry {
@@ -81,7 +80,7 @@ function History() {
   }, []);
   
   if (loading) {
-    return <LoadingSpinner message="Loading tournament history..." />;
+    return <div className="min-h-screen" />;
   }
 
   if (error && tournaments.length === 0) {

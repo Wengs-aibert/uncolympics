@@ -3,7 +3,6 @@ import { useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import useLobbyStore from '../stores/lobbyStore'
 import useTitleStore from '../stores/titleStore'
-import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { fetchTitlesForGame, saveTitles, updateTeamPoints, advanceToNextRound } from '../lib/api'
 import { calculateTitles } from '../lib/titles'
 import { subscribeGame, subscribeTournament } from '../lib/sync'
@@ -160,7 +159,7 @@ function TitleReveal() {
   
   // Loading state
   if (loading || calculating) {
-    return <LoadingSpinner message={calculating ? 'Calculating titles...' : 'Loading titles...'} />;
+    return <div className="min-h-screen" />;
   }
   
   // Error state

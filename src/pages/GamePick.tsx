@@ -3,7 +3,6 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import useLobbyStore from '../stores/lobbyStore'
 import useGamePlayStore from '../stores/gamePlayStore'
-import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { subscribeTournament } from '../lib/sync'
 import { fetchAvailableGames, fetchPickState, pickGame } from '../lib/api'
 import CustomGameCreator from '../components/game/CustomGameCreator'
@@ -167,7 +166,7 @@ function GamePick() {
   }, []);
   
   if (loading) {
-    return <LoadingSpinner message="Loading games..." />;
+    return <div className="min-h-screen" />;
   }
 
   if (error) {

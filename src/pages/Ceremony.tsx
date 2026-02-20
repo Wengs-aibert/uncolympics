@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import useLobbyStore from '../stores/lobbyStore'
 import useCeremonyStore from '../stores/ceremonyStore'
 import useGameStore from '../stores/gameStore'
-import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { fetchCeremonyData, saveGlobalTitles, updateTeamPoints, validateRoomCode } from '../lib/api'
 import { calculateGlobalTitles } from '../lib/globalTitles'
 import Confetti from '../components/animation/Confetti'
@@ -135,7 +134,7 @@ function Ceremony() {
   
   // LOADING: "Preparing ceremony..." (referee calculating)
   if (ceremonyPhase === 'loading') {
-    return <LoadingSpinner message="Preparing ceremony..." />;
+    return <div className="min-h-screen" />;
   }
 
   if (error) {

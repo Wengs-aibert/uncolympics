@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion'
 import useLobbyStore from '../stores/lobbyStore'
 import useScoreboardStore from '../stores/scoreboardStore'
 import { fetchScoreboard, fetchPlayerDetail, validateRoomCode } from '../lib/api'
-import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 
 function Scoreboard() {
   const { roomCode } = useParams<{ roomCode: string }>()
@@ -68,7 +67,7 @@ function Scoreboard() {
   }, []);
   
   if (!scoreboardData) {
-    return <LoadingSpinner message="Loading scoreboard..." />;
+    return <div className="min-h-screen" />;
   }
 
   const { teams, games, titleLeaderboard, players } = scoreboardData

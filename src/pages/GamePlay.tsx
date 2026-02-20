@@ -6,7 +6,6 @@ import { fetchGameState, submitPlayerStats, submitGameResult, endGame } from '..
 import { subscribeGame } from '../lib/sync';
 import DynamicStatInput from '../components/game/DynamicStatInput';
 import DynamicRefereeInput from '../components/game/DynamicRefereeInput';
-import { LoadingSpinner } from '../components/ui/LoadingSpinner';
 import type { GameType } from '../types';
 
 interface StatInputDef {
@@ -210,7 +209,7 @@ function GamePlay() {
   }, [gameType]);
   
   if (loading) {
-    return <LoadingSpinner message="Loading game..." />;
+    return <div className="min-h-screen" />;
   }
 
   if (!gameType || !currentGame) {
