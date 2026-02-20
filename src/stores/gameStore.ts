@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Tournament, Player, Team, Game, Title, PlayerStat, LeaderVote, GameType, GameResult } from '../types'
+import type { Tournament, Player, Team, Game, Title, PlayerStat, LeaderVote, GameType, GameResult, ScoreboardData, PlayerDetail } from '../types'
 
 interface GameStore {
   // State
@@ -35,6 +35,10 @@ interface GameStore {
   revealIndex: number
   revealComplete: boolean
   isLastGame: boolean
+  
+  // Sprint 6: Scoreboard state
+  scoreboardData: ScoreboardData | null
+  selectedPlayer: PlayerDetail | null
   
   // Actions
   setTournament: (tournament: Tournament) => void
@@ -87,6 +91,11 @@ interface GameStore {
   resetReveal: () => void
   setIsLastGame: (isLast: boolean) => void
   
+  // Sprint 6: Scoreboard actions
+  setScoreboardData: (data: ScoreboardData) => void
+  setSelectedPlayer: (detail: PlayerDetail | null) => void
+  clearSelectedPlayer: () => void
+  
   // Legacy actions (keeping for existing functionality)
   setTeam: (playerId: string, teamId: string) => void
   setGame: (game: Game) => void
@@ -123,6 +132,10 @@ const useGameStore = create<GameStore>((set) => ({
   revealIndex: 0,
   revealComplete: false,
   isLastGame: false,
+  
+  // Sprint 6: Scoreboard initial state
+  scoreboardData: null,
+  selectedPlayer: null,
   
   // Actions
   setTournament: (tournament) => set({ tournament }),
@@ -253,6 +266,13 @@ const useGameStore = create<GameStore>((set) => ({
   
   setIsLastGame: (isLast) => set({ isLastGame: isLast }),
   
+  // Sprint 6: Scoreboard action implementations
+  setScoreboardData: (data) => set({ scoreboardData: data }),
+  
+  setSelectedPlayer: (detail) => set({ selectedPlayer: detail }),
+  
+  clearSelectedPlayer: () => set({ selectedPlayer: null }),
+  
   // Legacy actions (keeping for existing functionality)
   setTeam: (playerId, teamId) => set((state) => ({
     players: state.players.map(p => 
@@ -293,7 +313,10 @@ const useGameStore = create<GameStore>((set) => ({
     gameTitles: [],
     revealIndex: 0,
     revealComplete: false,
-    isLastGame: false
+    isLastGame: false,
+    // Reset Sprint 6 state too
+    scoreboardData: null,
+    selectedPlayer: null
   })
 }))
 

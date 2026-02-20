@@ -88,3 +88,38 @@ export interface GameType {
   title_definitions: Record<string, any>
   created_at: string
 }
+
+// Sprint 6: Scoreboard Types
+export interface ScoreboardData {
+  tournament: Tournament
+  teams: Team[]
+  players: Player[]
+  games: GameWithType[]
+  titles: TitleWithPlayer[]
+  playerStats: PlayerStat[]
+  titleLeaderboard: LeaderboardEntry[]
+}
+
+export interface GameWithType extends Game {
+  gameType: GameType
+  winnerName?: string
+}
+
+export interface TitleWithPlayer extends Title {
+  playerName: string
+  teamName: string
+}
+
+export interface LeaderboardEntry {
+  playerId: string
+  playerName: string
+  teamName: string
+  titleCount: number
+}
+
+export interface PlayerDetail {
+  player: Player
+  statsByGame: { game: GameWithType; stats: PlayerStat[] }[]
+  titles: Title[]
+  pointsContributed: number
+}
