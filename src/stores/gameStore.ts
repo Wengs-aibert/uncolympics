@@ -30,6 +30,12 @@ interface GameStore {
     timestamp: string
   }[]
   
+  // Sprint 5: Title Reveal state
+  gameTitles: (Title & { playerName: string })[]
+  revealIndex: number
+  revealComplete: boolean
+  isLastGame: boolean
+  
   // Actions
   setTournament: (tournament: Tournament) => void
   setCurrentPlayer: (player: Player) => void
@@ -75,6 +81,12 @@ interface GameStore {
   }) => void
   clearGameState: () => void
   
+  // Sprint 5: Title Reveal actions
+  setGameTitles: (titles: (Title & { playerName: string })[]) => void
+  nextReveal: () => void
+  resetReveal: () => void
+  setIsLastGame: (isLast: boolean) => void
+  
   // Legacy actions (keeping for existing functionality)
   setTeam: (playerId: string, teamId: string) => void
   setGame: (game: Game) => void
@@ -105,6 +117,12 @@ const useGameStore = create<GameStore>((set) => ({
   currentGameStats: [],
   currentGameResult: null,
   liveFeed: [],
+  
+  // Sprint 5: Title Reveal initial state
+  gameTitles: [],
+  revealIndex: 0,
+  revealComplete: false,
+  isLastGame: false,
   
   // Actions
   setTournament: (tournament) => set({ tournament }),
@@ -213,6 +231,28 @@ const useGameStore = create<GameStore>((set) => ({
     liveFeed: []
   }),
   
+  // Sprint 5: Title Reveal action implementations
+  setGameTitles: (titles) => set({ 
+    gameTitles: titles,
+    revealIndex: 0,
+    revealComplete: titles.length === 0
+  }),
+  
+  nextReveal: () => set((state) => {
+    const nextIndex = state.revealIndex + 1;
+    return {
+      revealIndex: nextIndex,
+      revealComplete: nextIndex >= state.gameTitles.length
+    };
+  }),
+  
+  resetReveal: () => set({
+    revealIndex: 0,
+    revealComplete: false
+  }),
+  
+  setIsLastGame: (isLast) => set({ isLastGame: isLast }),
+  
   // Legacy actions (keeping for existing functionality)
   setTeam: (playerId, teamId) => set((state) => ({
     players: state.players.map(p => 
@@ -248,7 +288,12 @@ const useGameStore = create<GameStore>((set) => ({
     // Reset Sprint 4 state too
     currentGameStats: [],
     currentGameResult: null,
-    liveFeed: []
+    liveFeed: [],
+    // Reset Sprint 5 state too
+    gameTitles: [],
+    revealIndex: 0,
+    revealComplete: false,
+    isLastGame: false
   })
 }))
 

@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Tournament, Player, Team, LeaderVote, GameType, Game, PlayerStat, GameResult } from '../types'
+import type { Tournament, Player, Team, LeaderVote, GameType, Game, PlayerStat, GameResult, Title } from '../types'
 
 // API Functions
 
@@ -871,4 +871,254 @@ export async function endGame(
   }
 
   return { game, tournament };
+}
+
+// Sprint 5: Title System Functions
+
+export async function saveTitles(
+  tournamentId: string,
+  gameId: string,
+  titles: {
+    playerId: string;
+    titleName: string;
+    titleDesc: string;
+    isFunny: boolean;
+    points: number;
+  }[]
+): Promise<any[]> {
+  if (titles.length === 0) {
+    return [];
+  }
+
+  const titleRecords = titles.map(title => ({
+    tournament_id: tournamentId,
+    game_id: gameId,
+    player_id: title.playerId,
+    title_name: title.titleName,
+    title_desc: title.titleDesc,
+    is_funny: title.isFunny,
+    points: title.points
+  }));
+
+  const { data: insertedTitles, error } = await supabase
+    .from('titles')
+    .insert(titleRecords)
+    .select();
+
+  if (error || !insertedTitles) {
+    throw new Error(`Failed to save titles: ${error?.message}`);
+  }
+
+  return insertedTitles;
+}
+
+export async function updateTeamPoints(tournamentId: string): Promise<Team[]> {
+  // Query ALL titles for this tournament
+  const { data: titles, error: titlesError } = await supabase
+    .from('titles')
+    .select('player_id, points')
+    .eq('tournament_id', tournamentId);
+
+  if (titlesError) {
+    throw new Error(`Failed to fetch titles: ${titlesError.message}`);
+  }
+
+  if (!titles || titles.length === 0) {
+    // No titles, just return current teams
+    const { data: teams, error: teamsError } = await supabase
+      .from('teams')
+      .select('*')
+      .eq('tournament_id', tournamentId);
+
+    if (teamsError) {
+      throw new Error(`Failed to fetch teams: ${teamsError.message}`);
+    }
+
+    return teams || [];
+  }
+
+  // For each title, find the player's team_id
+  const { data: players, error: playersError } = await supabase
+    .from('players')
+    .select('id, team_id')
+    .eq('tournament_id', tournamentId)
+    .not('team_id', 'is', null);
+
+  if (playersError) {
+    throw new Error(`Failed to fetch players: ${playersError.message}`);
+  }
+
+  // Create player_id -> team_id mapping
+  const playerToTeam = new Map<string, string>();
+  (players || []).forEach(player => {
+    if (player.team_id) {
+      playerToTeam.set(player.id, player.team_id);
+    }
+  });
+
+  // Sum points per team
+  const teamPoints = new Map<string, number>();
+  titles.forEach(title => {
+    const teamId = playerToTeam.get(title.player_id);
+    if (teamId) {
+      teamPoints.set(teamId, (teamPoints.get(teamId) || 0) + title.points);
+    }
+  });
+
+  // Update each team's total_points
+  const updatedTeams = [];
+  for (const [teamId, totalPoints] of teamPoints) {
+    const { data: team, error: updateError } = await supabase
+      .from('teams')
+      .update({ total_points: totalPoints })
+      .eq('id', teamId)
+      .select()
+      .single();
+
+    if (updateError || !team) {
+      throw new Error(`Failed to update team points: ${updateError?.message}`);
+    }
+
+    updatedTeams.push(team);
+  }
+
+  // Also fetch teams that didn't get any new points (to return complete list)
+  const { data: allTeams, error: allTeamsError } = await supabase
+    .from('teams')
+    .select('*')
+    .eq('tournament_id', tournamentId);
+
+  if (allTeamsError) {
+    throw new Error(`Failed to fetch all teams: ${allTeamsError.message}`);
+  }
+
+  return allTeams || [];
+}
+
+export async function fetchTitlesForGame(gameId: string): Promise<(Title & { playerName: string })[]> {
+  // Get all titles where game_id = gameId
+  const { data: titles, error: titlesError } = await supabase
+    .from('titles')
+    .select('*')
+    .eq('game_id', gameId)
+    .order('created_at');
+
+  if (titlesError) {
+    throw new Error(`Failed to fetch titles: ${titlesError.message}`);
+  }
+
+  if (!titles || titles.length === 0) {
+    return [];
+  }
+
+  // Also fetch player names (separate query for simplicity)
+  const playerIds = [...new Set(titles.map(t => t.player_id))];
+  const { data: players, error: playersError } = await supabase
+    .from('players')
+    .select('id, name')
+    .in('id', playerIds);
+
+  if (playersError) {
+    throw new Error(`Failed to fetch player names: ${playersError.message}`);
+  }
+
+  // Create player_id -> name mapping
+  const playerNames = new Map<string, string>();
+  (players || []).forEach(player => {
+    playerNames.set(player.id, player.name);
+  });
+
+  // Return titles with player names attached
+  return titles.map(title => ({
+    ...title,
+    playerName: playerNames.get(title.player_id) || 'Unknown Player'
+  }));
+}
+
+export async function advanceToNextRound(tournamentId: string, gameId: string): Promise<{ tournament: Tournament; isLastGame: boolean }> {
+  // Update game status to 'completed'
+  const { data: game, error: gameError } = await supabase
+    .from('games')
+    .update({ status: 'completed' })
+    .eq('id', gameId)
+    .select()
+    .single();
+
+  if (gameError || !game) {
+    throw new Error(`Failed to update game status: ${gameError?.message}`);
+  }
+
+  // Count total games played (status='completed') for this tournament
+  const { count: completedGames, error: countError } = await supabase
+    .from('games')
+    .select('id', { count: 'exact' })
+    .eq('tournament_id', tournamentId)
+    .eq('status', 'completed');
+
+  if (countError) {
+    throw new Error(`Failed to count completed games: ${countError.message}`);
+  }
+
+  // Get tournament.num_games
+  const { data: tournament, error: tournamentError } = await supabase
+    .from('tournaments')
+    .select('*')
+    .eq('id', tournamentId)
+    .single();
+
+  if (tournamentError || !tournament) {
+    throw new Error(`Failed to fetch tournament: ${tournamentError?.message}`);
+  }
+
+  const totalGamesCompleted = completedGames || 0;
+  const numGames = tournament.num_games;
+
+  let updatedTournament: Tournament;
+
+  if (totalGamesCompleted < numGames) {
+    // If completed < num_games: Set tournament status = 'picking'
+    // Get current_pick_team, find the other team, set current_pick_team to other team
+    const { data: otherTeam, error: otherTeamError } = await supabase
+      .from('teams')
+      .select('id')
+      .eq('tournament_id', tournamentId)
+      .neq('id', tournament.current_pick_team)
+      .single();
+
+    if (otherTeamError || !otherTeam) {
+      throw new Error(`Failed to find other team: ${otherTeamError?.message}`);
+    }
+
+    const { data: updatedTournamentData, error: updateError } = await supabase
+      .from('tournaments')
+      .update({
+        status: 'picking',
+        current_pick_team: otherTeam.id
+      })
+      .eq('id', tournamentId)
+      .select()
+      .single();
+
+    if (updateError || !updatedTournamentData) {
+      throw new Error(`Failed to update tournament: ${updateError?.message}`);
+    }
+
+    updatedTournament = updatedTournamentData;
+    return { tournament: updatedTournament, isLastGame: false };
+  } else {
+    // If completed >= num_games: Set tournament status = 'completed'
+    const { data: updatedTournamentData, error: updateError } = await supabase
+      .from('tournaments')
+      .update({ status: 'completed' })
+      .eq('id', tournamentId)
+      .select()
+      .single();
+
+    if (updateError || !updatedTournamentData) {
+      throw new Error(`Failed to complete tournament: ${updateError?.message}`);
+    }
+
+    updatedTournament = updatedTournamentData;
+    return { tournament: updatedTournament, isLastGame: true };
+  }
 }

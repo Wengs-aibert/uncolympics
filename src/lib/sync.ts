@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import useGameStore from '../stores/gameStore';
-import type { Tournament, Player, Team, LeaderVote, Game, PlayerStat, GameResult } from '../types';
+import type { Tournament, Player, Team, LeaderVote, Game, PlayerStat, GameResult, Title } from '../types';
 
 export function subscribeTournament(tournamentId: string) {
   const channel = supabase.channel(`tournament:${tournamentId}`)
@@ -52,7 +52,23 @@ export function subscribeTournament(tournamentId: string) {
       
       if (payload.eventType === 'UPDATE') {
         // Handle status changes (lobby→picking) and other tournament updates
-        store.setTournament(payload.new as Tournament);
+        const tournament = payload.new as Tournament;
+        store.setTournament(tournament);
+        
+        // Handle navigation based on tournament status changes
+        if (tournament.status === 'picking') {
+          // Navigate to pick page
+          const currentUrl = window.location.pathname;
+          if (!currentUrl.includes('/pick')) {
+            window.location.href = `/game/${tournament.room_code}/pick`;
+          }
+        } else if (tournament.status === 'completed') {
+          // Navigate to ceremony
+          const currentUrl = window.location.pathname;
+          if (!currentUrl.includes('/ceremony')) {
+            window.location.href = `/ceremony/${tournament.room_code}`;
+          }
+        }
       }
     })
     .on('postgres_changes', {
@@ -159,6 +175,39 @@ export function subscribeGame(gameId: string, _tournamentId: string) {
           }
         }
       }
+    })
+    .on('postgres_changes', {
+      event: 'INSERT', 
+      schema: 'public', 
+      table: 'titles'
+    }, (payload) => {
+      const store = useGameStore.getState();
+      const title = payload.new as Title;
+      
+      // Check if this title belongs to the current game
+      if (title.game_id === gameId) {
+        // Find player name for the title
+        const player = store.players.find(p => p.id === title.player_id);
+        const titleWithPlayerName = {
+          ...title,
+          playerName: player?.name || 'Unknown Player'
+        };
+        
+        // Add to gameTitles array
+        const updatedTitles = [...store.gameTitles, titleWithPlayerName];
+        store.setGameTitles(updatedTitles);
+      }
+    })
+    .on('postgres_changes', {
+      event: 'UPDATE', 
+      schema: 'public', 
+      table: 'teams'
+    }, (payload) => {
+      const store = useGameStore.getState();
+      const updatedTeam = payload.new as Team;
+      
+      // Update team in store (this will update total_points)
+      store.updateTeam(updatedTeam);
     })
     .subscribe();
     
