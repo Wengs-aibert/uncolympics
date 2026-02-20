@@ -64,6 +64,7 @@ interface PlayerStat {
 interface GameStore {
   // State
   tournament: Tournament | null
+  currentPlayer: Player | null
   players: Player[]
   teams: Team[]
   currentGame: Game | null
@@ -72,6 +73,7 @@ interface GameStore {
   
   // Actions
   setTournament: (tournament: Tournament) => void
+  setCurrentPlayer: (player: Player) => void
   addPlayer: (player: Player) => void
   setTeam: (playerId: string, teamId: string) => void
   setGame: (game: Game) => void
@@ -83,6 +85,7 @@ interface GameStore {
 const useGameStore = create<GameStore>((set) => ({
   // Initial state
   tournament: null,
+  currentPlayer: null,
   players: [],
   teams: [],
   currentGame: null,
@@ -91,6 +94,8 @@ const useGameStore = create<GameStore>((set) => ({
   
   // Actions
   setTournament: (tournament) => set({ tournament }),
+  
+  setCurrentPlayer: (player) => set({ currentPlayer: player }),
   
   addPlayer: (player) => set((state) => ({
     players: [...state.players, player]
@@ -114,6 +119,7 @@ const useGameStore = create<GameStore>((set) => ({
   
   reset: () => set({
     tournament: null,
+    currentPlayer: null,
     players: [],
     teams: [],
     currentGame: null,
