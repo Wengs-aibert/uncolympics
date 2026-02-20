@@ -40,6 +40,9 @@ interface GameStore {
   scoreboardData: ScoreboardData | null
   selectedPlayer: PlayerDetail | null
   
+  // Sprint 7: Ceremony state
+  ceremonyPhase: 'loading' | 'global-titles' | 'winner-reveal' | 'summary'
+  
   // Actions
   setTournament: (tournament: Tournament) => void
   setCurrentPlayer: (player: Player) => void
@@ -265,6 +268,9 @@ const useGameStore = create<GameStore>((set) => ({
   }),
   
   setIsLastGame: (isLast) => set({ isLastGame: isLast }),
+  
+  // Sprint 7: Ceremony initial state
+  ceremonyPhase: 'loading',
   
   // Sprint 6: Scoreboard action implementations
   setScoreboardData: (data) => set({ scoreboardData: data }),

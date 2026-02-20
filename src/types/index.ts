@@ -123,3 +123,38 @@ export interface PlayerDetail {
   titles: Title[]
   pointsContributed: number
 }
+
+// Sprint 7: Ceremony Types
+export interface CeremonyData {
+  tournament: Tournament
+  teams: Team[]
+  players: Player[]
+  games: GameWithType[]
+  allTitles: TitleWithPlayer[]
+  globalTitles: TitleWithPlayer[]
+  winningTeam: Team | null
+  isTied: boolean
+  titleLeaderboard: LeaderboardEntry[]
+}
+
+// Sprint 8: History Types
+export interface TournamentSummary {
+  id: string
+  name: string
+  room_code: string
+  status: string
+  num_games: number
+  created_at: string
+  teams: { name: string; total_points: number }[]
+  playerCount: number
+}
+
+export interface TournamentRecap {
+  tournament: Tournament
+  teams: Team[]
+  players: Player[]
+  games: GameWithType[]
+  titles: TitleWithPlayer[]
+  globalTitles: TitleWithPlayer[]
+  winningTeam: Team | null
+}

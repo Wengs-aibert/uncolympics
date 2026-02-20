@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Tournament, Player, Team, LeaderVote, GameType, Game, PlayerStat, GameResult, Title, ScoreboardData, GameWithType, TitleWithPlayer, LeaderboardEntry, PlayerDetail } from '../types'
+import type { Tournament, Player, Team, LeaderVote, GameType, Game, PlayerStat, GameResult, Title, ScoreboardData, GameWithType, TitleWithPlayer, LeaderboardEntry, PlayerDetail, CeremonyData, TournamentSummary, TournamentRecap } from '../types'
 
 // API Functions
 
@@ -1387,4 +1387,266 @@ export async function fetchPlayerDetail(playerId: string, tournamentId: string):
     titles: titles || [],
     pointsContributed
   };
+}
+
+// Sprint 7: Ceremony Functions
+
+export async function fetchCeremonyData(tournamentId: string): Promise<CeremonyData> {
+  // Get tournament
+  const { data: tournament, error: tournamentError } = await supabase
+    .from('tournaments')
+    .select('*')
+    .eq('id', tournamentId)
+    .single();
+
+  if (tournamentError || !tournament) {
+    throw new Error(`Failed to fetch tournament: ${tournamentError?.message}`);
+  }
+
+  // Get teams sorted by points
+  const { data: teams, error: teamsError } = await supabase
+    .from('teams')
+    .select('*')
+    .eq('tournament_id', tournamentId)
+    .order('total_points', { ascending: false });
+
+  if (teamsError) throw new Error(`Failed to fetch teams: ${teamsError.message}`);
+
+  // Get all players
+  const { data: players, error: playersError } = await supabase
+    .from('players')
+    .select('*')
+    .eq('tournament_id', tournamentId)
+    .order('name');
+
+  if (playersError) throw new Error(`Failed to fetch players: ${playersError.message}`);
+
+  // Get completed games with types
+  const { data: completedGames, error: gamesError } = await supabase
+    .from('games')
+    .select('*, game_type:game_types(*)')
+    .eq('tournament_id', tournamentId)
+    .eq('status', 'completed')
+    .order('game_order');
+
+  if (gamesError) throw new Error(`Failed to fetch games: ${gamesError.message}`);
+
+  // Get game results
+  const gameIds = (completedGames || []).map(g => g.id);
+  let gameResults: GameResult[] = [];
+  if (gameIds.length > 0) {
+    const { data: results, error } = await supabase
+      .from('game_results')
+      .select('*')
+      .in('game_id', gameIds);
+    if (error) throw new Error(`Failed to fetch results: ${error.message}`);
+    gameResults = results || [];
+  }
+
+  // Get all titles (game + global)
+  const { data: allTitlesRaw, error: titlesError } = await supabase
+    .from('titles')
+    .select('*')
+    .eq('tournament_id', tournamentId)
+    .order('created_at');
+
+  if (titlesError) throw new Error(`Failed to fetch titles: ${titlesError.message}`);
+
+  // Build player name map
+  const playerNameMap = new Map<string, string>();
+  (players || []).forEach(p => playerNameMap.set(p.id, p.name));
+
+  // Build team name map from player->team
+  const playerTeamMap = new Map<string, string>();
+  (players || []).forEach(p => {
+    if (p.team_id) {
+      const team = (teams || []).find(t => t.id === p.team_id);
+      playerTeamMap.set(p.id, team?.name || 'No Team');
+    }
+  });
+
+  const allTitles: TitleWithPlayer[] = (allTitlesRaw || []).map(t => ({
+    ...t,
+    playerName: playerNameMap.get(t.player_id) || 'Unknown',
+    teamName: playerTeamMap.get(t.player_id) || 'No Team'
+  }));
+
+  const globalTitles = allTitles.filter(t => !t.game_id);
+
+  // Build games with types
+  const games: GameWithType[] = (completedGames || []).map(game => {
+    const result = gameResults.find(r => r.game_id === game.id);
+    const winningTeam = result?.winning_team_id
+      ? (teams || []).find(t => t.id === result.winning_team_id)
+      : null;
+    return {
+      ...game,
+      gameType: game.game_type as GameType,
+      winnerName: winningTeam?.name
+    };
+  });
+
+  // Determine winner
+  const teamList = teams || [];
+  let winningTeam: Team | null = null;
+  let isTied = false;
+  if (teamList.length >= 2) {
+    if (teamList[0].total_points > teamList[1].total_points) {
+      winningTeam = teamList[0];
+    } else if (teamList[0].total_points === teamList[1].total_points) {
+      isTied = true;
+    }
+  } else if (teamList.length === 1) {
+    winningTeam = teamList[0];
+  }
+
+  // Title leaderboard
+  const titleCounts = new Map<string, { count: number; playerName: string; teamName: string }>();
+  allTitles.forEach(t => {
+    if (titleCounts.has(t.player_id)) {
+      titleCounts.get(t.player_id)!.count += 1;
+    } else {
+      titleCounts.set(t.player_id, {
+        count: 1,
+        playerName: t.playerName,
+        teamName: t.teamName
+      });
+    }
+  });
+
+  const titleLeaderboard: LeaderboardEntry[] = Array.from(titleCounts.entries())
+    .map(([playerId, data]) => ({
+      playerId,
+      playerName: data.playerName,
+      teamName: data.teamName,
+      titleCount: data.count
+    }))
+    .sort((a, b) => b.titleCount - a.titleCount);
+
+  return {
+    tournament,
+    teams: teamList,
+    players: players || [],
+    games,
+    allTitles,
+    globalTitles,
+    winningTeam,
+    isTied,
+    titleLeaderboard
+  };
+}
+
+export async function saveGlobalTitles(
+  tournamentId: string,
+  titles: {
+    playerId: string;
+    titleName: string;
+    titleDesc: string;
+    isFunny: boolean;
+    points: number;
+  }[]
+): Promise<any[]> {
+  if (titles.length === 0) return [];
+
+  const records = titles.map(t => ({
+    tournament_id: tournamentId,
+    game_id: null,
+    player_id: t.playerId,
+    title_name: t.titleName,
+    title_desc: t.titleDesc,
+    is_funny: t.isFunny,
+    points: t.points
+  }));
+
+  const { data, error } = await supabase
+    .from('titles')
+    .insert(records)
+    .select();
+
+  if (error) throw new Error(`Failed to save global titles: ${error.message}`);
+  return data || [];
+}
+
+// Sprint 8: History Functions
+
+export async function fetchHistory(): Promise<TournamentSummary[]> {
+  const { data: tournaments, error } = await supabase
+    .from('tournaments')
+    .select('*')
+    .eq('status', 'completed')
+    .order('created_at', { ascending: false });
+
+  if (error) throw new Error(`Failed to fetch history: ${error.message}`);
+  if (!tournaments || tournaments.length === 0) return [];
+
+  const summaries: TournamentSummary[] = [];
+
+  for (const t of tournaments) {
+    // Get teams
+    const { data: teams } = await supabase
+      .from('teams')
+      .select('name, total_points')
+      .eq('tournament_id', t.id)
+      .order('total_points', { ascending: false });
+
+    // Get player count
+    const { count: playerCount } = await supabase
+      .from('players')
+      .select('id', { count: 'exact' })
+      .eq('tournament_id', t.id)
+      .neq('role', 'spectator');
+
+    summaries.push({
+      id: t.id,
+      name: t.name,
+      room_code: t.room_code,
+      status: t.status,
+      num_games: t.num_games,
+      created_at: t.created_at,
+      teams: (teams || []).map(team => ({ name: team.name, total_points: team.total_points })),
+      playerCount: playerCount || 0
+    });
+  }
+
+  return summaries;
+}
+
+export async function fetchTournamentRecap(tournamentId: string): Promise<TournamentRecap> {
+  const ceremony = await fetchCeremonyData(tournamentId);
+  return {
+    tournament: ceremony.tournament,
+    teams: ceremony.teams,
+    players: ceremony.players,
+    games: ceremony.games,
+    titles: ceremony.allTitles.filter(t => t.game_id !== null),
+    globalTitles: ceremony.globalTitles,
+    winningTeam: ceremony.winningTeam
+  };
+}
+
+export async function createCustomGameType(
+  tournamentId: string,
+  name: string,
+  emoji: string,
+  description: string,
+  playerInputs: any[],
+  refereeInputs: any[],
+  titleDefinitions: any[]
+): Promise<GameType> {
+  const { data, error } = await supabase
+    .from('game_types')
+    .insert({
+      tournament_id: tournamentId,
+      name,
+      emoji,
+      description,
+      player_inputs: playerInputs,
+      referee_inputs: refereeInputs,
+      title_definitions: titleDefinitions
+    })
+    .select()
+    .single();
+
+  if (error || !data) throw new Error(`Failed to create custom game: ${error?.message}`);
+  return data;
 }
