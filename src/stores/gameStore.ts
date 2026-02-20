@@ -1,65 +1,5 @@
 import { create } from 'zustand'
-
-// Define types for the store
-interface Tournament {
-  id: string
-  room_code: string
-  name: string
-  status: 'lobby' | 'picking' | 'playing' | 'scoring' | 'completed'
-  num_games: number
-  time_est_min: number
-  referee_id: string
-  current_pick_team: string | null
-  created_at: string
-}
-
-interface Player {
-  id: string
-  tournament_id: string
-  name: string
-  device_id: string
-  team_id: string | null
-  role: 'referee' | 'player' | 'spectator'
-  is_leader: boolean
-  created_at: string
-}
-
-interface Team {
-  id: string
-  tournament_id: string
-  name: string
-  total_points: number
-}
-
-interface Game {
-  id: string
-  tournament_id: string
-  game_type_id: string
-  status: 'pending' | 'active' | 'scoring' | 'titles' | 'completed'
-  picked_by_team: string
-  game_order: number
-  created_at: string
-}
-
-interface Title {
-  id: string
-  tournament_id: string
-  game_id: string | null
-  player_id: string
-  title_name: string
-  title_desc: string
-  is_funny: boolean
-  points: number
-}
-
-interface PlayerStat {
-  id: string
-  game_id: string
-  player_id: string
-  stat_key: string
-  stat_value: number
-  submitted_at: string
-}
+import type { Tournament, Player, Team, Game, Title, PlayerStat, LeaderVote } from '../types'
 
 interface GameStore {
   // State
@@ -67,6 +7,8 @@ interface GameStore {
   currentPlayer: Player | null
   players: Player[]
   teams: Team[]
+  votes: LeaderVote[]
+  connectionStatus: 'connected' | 'reconnecting' | 'disconnected'
   currentGame: Game | null
   titles: Title[]
   playerStats: PlayerStat[]
@@ -74,7 +16,29 @@ interface GameStore {
   // Actions
   setTournament: (tournament: Tournament) => void
   setCurrentPlayer: (player: Player) => void
+  
+  // Player actions
   addPlayer: (player: Player) => void
+  updatePlayer: (player: Player) => void
+  removePlayer: (playerId: string) => void
+  setPlayers: (players: Player[]) => void
+  
+  // Team actions
+  addTeam: (team: Team) => void
+  updateTeam: (team: Team) => void
+  removeTeam: (teamId: string) => void
+  setTeams: (teams: Team[]) => void
+  
+  // Vote actions
+  addVote: (vote: LeaderVote) => void
+  updateVote: (vote: LeaderVote) => void
+  removeVote: (voteId: string) => void
+  setVotes: (votes: LeaderVote[]) => void
+  
+  // Connection status
+  setConnectionStatus: (status: 'connected' | 'reconnecting' | 'disconnected') => void
+  
+  // Legacy actions (keeping for existing functionality)
   setTeam: (playerId: string, teamId: string) => void
   setGame: (game: Game) => void
   addStat: (stat: PlayerStat) => void
@@ -88,6 +52,8 @@ const useGameStore = create<GameStore>((set) => ({
   currentPlayer: null,
   players: [],
   teams: [],
+  votes: [],
+  connectionStatus: 'disconnected',
   currentGame: null,
   titles: [],
   playerStats: [],
@@ -97,10 +63,64 @@ const useGameStore = create<GameStore>((set) => ({
   
   setCurrentPlayer: (player) => set({ currentPlayer: player }),
   
+  // Player actions
   addPlayer: (player) => set((state) => ({
-    players: [...state.players, player]
+    players: [...state.players.filter(p => p.id !== player.id), player]
   })),
   
+  updatePlayer: (player) => set((state) => ({
+    players: state.players.map(p => p.id === player.id ? player : p),
+    // Update current player if it's the same person
+    currentPlayer: state.currentPlayer?.id === player.id ? player : state.currentPlayer
+  })),
+  
+  removePlayer: (playerId) => set((state) => ({
+    players: state.players.filter(p => p.id !== playerId)
+  })),
+  
+  setPlayers: (players) => set({ players }),
+  
+  // Team actions
+  addTeam: (team) => set((state) => ({
+    teams: [...state.teams.filter(t => t.id !== team.id), team]
+  })),
+  
+  updateTeam: (team) => set((state) => ({
+    teams: state.teams.map(t => t.id === team.id ? team : t)
+  })),
+  
+  removeTeam: (teamId) => set((state) => ({
+    teams: state.teams.filter(t => t.id !== teamId)
+  })),
+  
+  setTeams: (teams) => set({ teams }),
+  
+  // Vote actions
+  addVote: (vote) => set((state) => {
+    const teamIds = state.teams.map(t => t.id);
+    // Only add votes that belong to teams in current tournament
+    if (teamIds.includes(vote.team_id)) {
+      return {
+        votes: [...state.votes.filter(v => v.id !== vote.id), vote]
+      };
+    }
+    return state;
+  }),
+  
+  updateVote: (vote) => set((state) => ({
+    votes: state.votes.map(v => v.id === vote.id ? vote : v)
+  })),
+  
+  removeVote: (voteId) => set((state) => ({
+    votes: state.votes.filter(v => v.id !== voteId)
+  })),
+  
+  setVotes: (votes) => set({ votes }),
+  
+  // Connection status
+  setConnectionStatus: (status) => set({ connectionStatus: status }),
+  
+  // Legacy actions (keeping for existing functionality)
   setTeam: (playerId, teamId) => set((state) => ({
     players: state.players.map(p => 
       p.id === playerId ? { ...p, team_id: teamId } : p
@@ -122,6 +142,8 @@ const useGameStore = create<GameStore>((set) => ({
     currentPlayer: null,
     players: [],
     teams: [],
+    votes: [],
+    connectionStatus: 'disconnected',
     currentGame: null,
     titles: [],
     playerStats: []

@@ -1,12 +1,13 @@
 import { useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getOrCreateDeviceId } from '../lib/device'
-import { reconnectPlayer } from '../lib/api'
+import { reconnectPlayer, fetchLobbyState } from '../lib/api'
+import { subscribeTournament } from '../lib/sync'
 import useGameStore from '../stores/gameStore'
 
 export function useReconnect() {
   const navigate = useNavigate()
-  const { setTournament, setCurrentPlayer } = useGameStore()
+  const { setTournament, setCurrentPlayer, setPlayers, setTeams, setVotes } = useGameStore()
 
   useEffect(() => {
     const attemptReconnect = async () => {
@@ -18,6 +19,21 @@ export function useReconnect() {
           const { tournament, player } = result
           setTournament(tournament)
           setCurrentPlayer(player)
+          
+          // If reconnecting to lobby, also load lobby state and setup real-time sync
+          if (tournament.status === 'lobby') {
+            try {
+              const lobbyState = await fetchLobbyState(tournament.id)
+              setPlayers(lobbyState.players)
+              setTeams(lobbyState.teams)
+              setVotes(lobbyState.votes)
+              
+              // Setup real-time sync for lobby
+              subscribeTournament(tournament.id)
+            } catch (error) {
+              console.error('Failed to load lobby state on reconnect:', error)
+            }
+          }
           
           // Navigate based on tournament status
           switch (tournament.status) {
@@ -49,5 +65,5 @@ export function useReconnect() {
     }
 
     attemptReconnect()
-  }, [navigate, setTournament, setCurrentPlayer])
+  }, [navigate, setTournament, setCurrentPlayer, setPlayers, setTeams, setVotes])
 }
