@@ -11,44 +11,25 @@ function Home() {
   }, []);
 
   return (
-    <div className="text-center space-y-12">
+    <div className="flex flex-col items-center justify-center min-h-screen space-y-12">
       {/* Title */}
-      <div className="mb-16">
-        <h1 className="text-6xl md:text-8xl font-bold text-accent-primary neon-glow-primary mb-4">
-          UNCOLYMPICS
-        </h1>
-        <p className="text-xl md:text-2xl text-secondary">
-          Real-time party Olympics scoring
-        </p>
-      </div>
+      <h1 className="text-6xl md:text-8xl font-heading text-primary text-center">
+        UNCOLYMPICS
+      </h1>
 
-      {/* Action Buttons */}
-      <div className="space-y-8">
-        <Link to="/create">
-          <button className="w-full max-w-md bg-secondary hover:bg-accent-primary hover:text-black text-accent-primary border-2 border-accent-primary neon-border-primary font-bold text-2xl py-6 px-12 rounded-lg transition-all duration-300 transform hover:scale-105">
-            CREATE TOURNAMENT
+      {/* Glass Panel with Buttons */}
+      <div className="glass-panel p-8 w-full max-w-sm space-y-6">
+        <Link to="/create" className="block">
+          <button className="btn-navy w-full text-xl font-semibold">
+            Create Tournament
           </button>
         </Link>
 
-        <Link to="/join">
-          <button className="w-full max-w-md bg-secondary hover:bg-accent-secondary hover:text-black text-accent-secondary border-2 border-accent-secondary neon-border-secondary font-bold text-2xl py-6 px-12 rounded-lg transition-all duration-300 transform hover:scale-105">
-            JOIN TOURNAMENT
+        <Link to="/join" className="block">
+          <button className="btn-navy w-full text-xl font-semibold">
+            Join Tournament
           </button>
         </Link>
-
-        {/* Tournament History Link */}
-        <div className="mt-8">
-          <Link to="/history">
-            <button className="w-full max-w-md bg-transparent hover:bg-gray-800 text-gray-400 hover:text-white border border-gray-600 hover:border-gray-500 font-medium text-lg py-4 px-8 rounded-lg transition-all duration-300">
-              📜 Past Tournaments
-            </button>
-          </Link>
-        </div>
-      </div>
-
-      {/* Footer Text */}
-      <div className="mt-16 text-secondary">
-        <p>Choose your path to Olympic glory!</p>
       </div>
     </div>
   )

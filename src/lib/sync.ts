@@ -77,10 +77,12 @@ export function subscribeTournament(tournamentId: string) {
       table: 'leader_votes'
     }, (payload) => {
       const store = useGameStore.getState();
+      const teamIds = new Set(store.teams.map(t => t.id));
       
-      // For leader votes, we need to check if this vote affects our tournament
-      // Since we can't filter by tournament_id directly, we'll handle all votes
-      // and let the store filter them based on current teams
+      // Filter: only process votes for teams in this tournament
+      const vote = (payload.eventType === 'DELETE' ? payload.old : payload.new) as LeaderVote;
+      if (!teamIds.has(vote.team_id)) return;
+      
       if (payload.eventType === 'INSERT') {
         store.addVote(payload.new as LeaderVote);
       } else if (payload.eventType === 'UPDATE') {
@@ -116,7 +118,7 @@ export function subscribeTournament(tournamentId: string) {
 }
 
 // Sprint 4: Game-specific subscription
-export function subscribeGame(gameId: string, _tournamentId: string) {
+export function subscribeGame(gameId: string, tournamentId: string) {
   const channel = supabase.channel(`game:${gameId}`)
     .on('postgres_changes', {
       event: '*', 
@@ -179,7 +181,8 @@ export function subscribeGame(gameId: string, _tournamentId: string) {
     .on('postgres_changes', {
       event: 'INSERT', 
       schema: 'public', 
-      table: 'titles'
+      table: 'titles',
+      filter: `tournament_id=eq.${tournamentId}`
     }, (payload) => {
       const store = useGameStore.getState();
       const title = payload.new as Title;
@@ -201,7 +204,8 @@ export function subscribeGame(gameId: string, _tournamentId: string) {
     .on('postgres_changes', {
       event: 'UPDATE', 
       schema: 'public', 
-      table: 'teams'
+      table: 'teams',
+      filter: `tournament_id=eq.${tournamentId}`
     }, (payload) => {
       const store = useGameStore.getState();
       const updatedTeam = payload.new as Team;
