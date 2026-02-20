@@ -3,11 +3,14 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { createTournament } from '../lib/api'
 import { getOrCreateDeviceId } from '../lib/device'
-import useGameStore from '../stores/gameStore'
+import useLobbyStore from '../stores/lobbyStore'
+import { toast } from '../lib/toast'
+import { useSwipeUp } from '../hooks/useSwipeUp'
+import { SwipeHint } from '../components/ui/SwipeHint'
 
 function CreateTournament() {
   const navigate = useNavigate()
-  const { setTournament, setCurrentPlayer } = useGameStore()
+  const { setTournament, setCurrentPlayer } = useLobbyStore()
   const refNameRef = useRef<HTMLDivElement>(null)
   const gamesRef = useRef<HTMLDivElement>(null)
   const lobbyRef = useRef<HTMLDivElement>(null)
@@ -21,7 +24,6 @@ function CreateTournament() {
     numGames: 3,
     roomCode: ''
   })
-  const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [refNameEditing, setRefNameEditing] = useState(false)
   const [gamesEditing, setGamesEditing] = useState(false)
@@ -39,12 +41,11 @@ function CreateTournament() {
   const handleCreate = async () => {
     const validationError = validateForm()
     if (validationError) {
-      setError(validationError)
+      toast.error(validationError)
       return
     }
 
     setLoading(true)
-    setError('')
 
     try {
       const deviceId = getOrCreateDeviceId()
@@ -61,10 +62,11 @@ function CreateTournament() {
 
       setTournament(result.tournament)
       setCurrentPlayer(result.player)
+      toast.success('Tournament created!')
       navigate(`/lobby/${result.tournament.room_code}`)
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to create tournament'
-      setError(errorMessage)
+      toast.error(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -119,8 +121,14 @@ function CreateTournament() {
     navigate('/')
   }
 
+  // Add swipe-up functionality
+  const { swipeHintRef } = useSwipeUp({
+    onSwipe: handleCreate,
+    enabled: !loading && formData.refereeName.trim() !== '' && formData.roomCode.trim() !== ''
+  })
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen relative space-y-16">
+    <div ref={swipeHintRef} className="flex flex-col items-center justify-center min-h-screen relative space-y-16">
       {/* Back navigation */}
       <button
         onClick={handleBackNavigation}
@@ -188,34 +196,12 @@ function CreateTournament() {
         </div>
       </motion.div>
 
-      {/* Red circle button */}
-      <motion.div
-        initial={{ opacity: 0, scale: 0.8 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.6, delay: 0.8 }}
-        className="absolute top-8 right-8"
-      >
-        <button
-          onClick={handleCreate}
-          disabled={loading || !formData.refereeName.trim() || !formData.roomCode.trim()}
-          className="btn-red disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {loading ? '⏳' : '🔴'}
-        </button>
-      </motion.div>
+      {/* Swipe hint */}
+      <SwipeHint 
+        visible={!loading && formData.refereeName.trim() !== '' && formData.roomCode.trim() !== ''} 
+        text="↑ Swipe up"
+      />
 
-      {/* Error Message */}
-      {error && (
-        <motion.div
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="absolute bottom-8 left-1/2 transform -translate-x-1/2"
-        >
-          <div className="glass-panel p-4 bg-red-500/20 border-red-500/30">
-            <p className="text-red-300 text-center text-sm">{error}</p>
-          </div>
-        </motion.div>
-      )}
     </div>
   )
 }

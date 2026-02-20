@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import useGameStore from '../stores/gameStore';
+import useLobbyStore from '../stores/lobbyStore';
+import useGamePlayStore from '../stores/gamePlayStore';
 import { fetchGameState, submitPlayerStats, submitGameResult, endGame } from '../lib/api';
 import { subscribeGame } from '../lib/sync';
 import DynamicStatInput from '../components/game/DynamicStatInput';
@@ -26,18 +27,15 @@ function GamePlay() {
   const { gameId } = useParams<{ roomCode: string; gameId: string }>();
   const navigate = useNavigate();
   
+  const { tournament, currentPlayer, players, teams } = useLobbyStore();
   const {
-    tournament,
-    currentPlayer,
-    players,
-    teams,
     currentGame,
     liveFeed,
     setGame,
     setCurrentGameStats,
     setCurrentGameResult,
     clearGameState
-  } = useGameStore();
+  } = useGamePlayStore();
   
   // Local state
   const [loading, setLoading] = useState(true);
@@ -217,27 +215,27 @@ function GamePlay() {
 
   if (!gameType || !currentGame) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-lg text-red-400">Game not found</p>
+      <div className="min-h-screen app-container flex items-center justify-center">
+        <div className="text-center glass-panel p-6">
+          <p className="text-lg text-red">Game not found</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen app-container">
       <div className="container mx-auto px-4 py-8 max-w-4xl">
         
         {/* Header */}
         <div className="text-center mb-8">
           <div className="text-6xl mb-2">{gameType.emoji}</div>
-          <h1 className="text-3xl font-bold mb-2">{gameType.name}</h1>
-          <div className="text-lg text-gray-400 mb-4">
+          <h1 className="text-3xl font-heading text-primary mb-2">{gameType.name}</h1>
+          <div className="text-lg text-secondary mb-4">
             Round {currentGame.game_order} / {tournament?.num_games || '?'}
           </div>
           {gameTeams.length >= 2 && (
-            <div className="text-xl font-semibold text-blue-400">
+            <div className="text-xl font-heading text-navy">
               {gameTeams[0].name} vs {gameTeams[1].name}
             </div>
           )}
@@ -245,24 +243,24 @@ function GamePlay() {
 
         {/* Error message */}
         {error && (
-          <div className="bg-red-600 text-white p-4 rounded-lg mb-6">
+          <div className="glass-panel border-red text-red p-4 mb-6">
             {error}
           </div>
         )}
 
         {/* Rules Card */}
-        <div className="bg-gray-800 rounded-lg p-6 mb-8">
+        <div className="glass-panel p-6 mb-8">
           <button
             onClick={() => setRulesExpanded(!rulesExpanded)}
             className="flex items-center justify-between w-full text-left"
           >
-            <h2 className="text-xl font-semibold">Game Rules</h2>
-            <span className="text-2xl">
+            <h2 className="text-xl font-heading text-primary">Game Rules</h2>
+            <span className="text-2xl text-primary">
               {rulesExpanded ? '−' : '+'}
             </span>
           </button>
           {rulesExpanded && (
-            <div className="mt-4 text-gray-300 whitespace-pre-wrap">
+            <div className="mt-4 text-secondary whitespace-pre-wrap">
               {gameType.description}
             </div>
           )}
@@ -270,8 +268,8 @@ function GamePlay() {
 
         {/* Player Stats Section */}
         {isPlayer && hasPlayerInputs && (
-          <div className="bg-gray-800 rounded-lg p-6 mb-8">
-            <h2 className="text-xl font-semibold mb-6 text-center">── YOUR STATS ──</h2>
+          <div className="glass-panel p-6 mb-8">
+            <h2 className="text-xl font-heading text-primary mb-6 text-center">── YOUR STATS ──</h2>
             
             <DynamicStatInput
               inputs={playerInputs}
@@ -283,13 +281,13 @@ function GamePlay() {
               <button
                 onClick={submitPlayerStatsHandler}
                 disabled={submitting}
-                className="bg-blue-600 hover:bg-blue-500 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-navy hover:bg-navy-alt text-primary px-8 py-3 rounded-lg text-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Submitting...' : 'Submit Stats'}
               </button>
               
               {submitSuccess && (
-                <div className="mt-4 text-green-400 font-semibold">
+                <div className="mt-4 text-navy font-semibold">
                   ✅ Stats submitted!
                 </div>
               )}
@@ -299,34 +297,34 @@ function GamePlay() {
 
         {/* No Player Stats Message */}
         {isPlayer && !hasPlayerInputs && (
-          <div className="bg-gray-800 rounded-lg p-6 mb-8 text-center">
+          <div className="glass-panel p-6 mb-8 text-center">
             <div className="text-4xl mb-4">📺</div>
-            <p className="text-lg text-gray-300">
+            <p className="text-lg text-secondary">
               No stats to report for this game — enjoy watching!
             </p>
           </div>
         )}
 
         {/* Live Feed */}
-        <div className="bg-gray-800 rounded-lg p-6 mb-8">
-          <h2 className="text-xl font-semibold mb-6 text-center">── LIVE FEED ──</h2>
+        <div className="glass-panel p-6 mb-8">
+          <h2 className="text-xl font-heading text-primary mb-6 text-center">── LIVE FEED ──</h2>
           
           <div className="space-y-3 max-h-64 overflow-y-auto">
             {liveFeed.length === 0 ? (
-              <p className="text-gray-400 text-center py-4">
+              <p className="text-secondary text-center py-4">
                 No activity yet...
               </p>
             ) : (
               liveFeed.map((item, index) => (
-                <div key={index} className="bg-gray-700 rounded p-3">
+                <div key={index} className="glass-panel p-3">
                   <div className="flex justify-between items-start">
                     <div>
-                      <span className="font-semibold text-blue-400">{item.playerName}</span>
-                      <span className="mx-2">•</span>
-                      <span className="text-gray-300">{item.statLabel}: </span>
-                      <span className="font-bold text-white">{item.statValue}</span>
+                      <span className="font-semibold text-navy">{item.playerName}</span>
+                      <span className="mx-2 text-secondary">•</span>
+                      <span className="text-secondary">{item.statLabel}: </span>
+                      <span className="font-bold text-primary">{item.statValue}</span>
                     </div>
-                    <div className="text-xs text-gray-500">
+                    <div className="text-xs text-secondary">
                       {new Date(item.timestamp).toLocaleTimeString()}
                     </div>
                   </div>
@@ -338,10 +336,12 @@ function GamePlay() {
 
         {/* Referee Controls */}
         {isReferee && (
-          <div className="bg-red-900/20 border border-red-500 rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-6 text-center text-red-400">
-              ═══ REFEREE CONTROLS ═══
-            </h2>
+          <div className="glass-panel border-[var(--accent-tertiary)] p-6">
+            <div className="border-b border-[var(--glass-border)] pb-4 mb-6">
+              <h2 className="text-xl font-heading text-red text-center">
+                ═══ REFEREE CONTROLS ═══
+              </h2>
+            </div>
             
             {refereeInputs.length > 0 && (
               <div className="mb-8">
@@ -359,7 +359,7 @@ function GamePlay() {
               <button
                 onClick={() => setShowEndGameModal(true)}
                 disabled={submitting}
-                className="bg-red-600 hover:bg-red-500 text-white px-8 py-3 rounded-lg text-lg font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-red hover:scale-105 text-primary px-8 py-3 rounded-lg text-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {submitting ? 'Ending Game...' : 'END GAME'}
               </button>

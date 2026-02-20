@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { getOrCreateDeviceId } from '../lib/device'
 import { reconnectPlayer, fetchLobbyState } from '../lib/api'
 import { subscribeTournament } from '../lib/sync'
-import useGameStore from '../stores/gameStore'
+import useLobbyStore from '../stores/lobbyStore'
 
 export function useReconnect() {
   const navigate = useNavigate()
-  const { setTournament, setCurrentPlayer, setPlayers, setTeams, setVotes } = useGameStore()
+  const { setTournament, setCurrentPlayer, setPlayers, setTeams, setVotes } = useLobbyStore()
 
   useEffect(() => {
     const attemptReconnect = async () => {

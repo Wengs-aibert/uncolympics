@@ -113,7 +113,7 @@ export async function calculateGlobalTitles(tournamentId: string): Promise<Globa
       const firstHalfTitles = titleList.filter(t => t.player_id === player.id && firstHalfGameIds.has(t.game_id!))
       const secondHalfTitles = titleList.filter(t => t.player_id === player.id && secondHalfGameIds.has(t.game_id!))
       
-      if (secondHalfTitles.length > firstHalfTitles.length && firstHalfTitles.length >= 0) {
+      if (secondHalfTitles.length > firstHalfTitles.length && secondHalfTitles.length >= 2) {
         results.push({
           playerId: player.id,
           titleName: 'Late Bloomer',

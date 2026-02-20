@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import useGameStore from '../stores/gameStore'
+import useLobbyStore from '../stores/lobbyStore'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { subscribeTournament } from '../lib/sync'
 import { 
@@ -11,6 +11,9 @@ import {
   voteForLeader, 
   startTournament 
 } from '../lib/api'
+import { toast } from '../lib/toast'
+import { useSwipeUp } from '../hooks/useSwipeUp'
+import { SwipeHint } from '../components/ui/SwipeHint'
 
 function Lobby() {
   const { roomCode } = useParams<{ roomCode: string }>()
@@ -29,7 +32,7 @@ function Lobby() {
     setPlayers,
     setTeams,
     setVotes
-  } = useGameStore()
+  } = useLobbyStore()
 
   // Load lobby state on mount
   useEffect(() => {
@@ -104,7 +107,7 @@ function Lobby() {
     try {
       await startTournament(tournament.id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start tournament')
+      toast.error(err instanceof Error ? err.message : 'Failed to start tournament')
     }
   }
 
@@ -122,6 +125,12 @@ function Lobby() {
 
   const isReferee = currentPlayer?.role === 'referee'
 
+  // Add swipe-up functionality for referees
+  const { swipeHintRef } = useSwipeUp({
+    onSwipe: handleStartTournament,
+    enabled: isReferee && canStartTournament()
+  })
+
   if (isLoading) {
     return <LoadingSpinner message="Loading lobby..." />;
   }
@@ -135,14 +144,12 @@ function Lobby() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col relative px-6 pt-8">
+    <div ref={swipeHintRef} className="min-h-screen flex flex-col relative px-6 pt-8">
       {/* Connection status indicator */}
       <div className={`absolute top-4 right-4 w-3 h-3 rounded-full ${
         connectionStatus === 'connected' ? 'bg-green-400' : 
         connectionStatus === 'reconnecting' ? 'bg-yellow-400' : 'bg-red-400'
       }`} title={connectionStatus || 'unknown'} />
-
-      {/* NO red button in lobby — removed per spec */}
 
       {/* Player Names — top-left aligned, bottom-to-top slide-in */}
       <div className="flex flex-col items-start space-y-2 w-full">
@@ -190,22 +197,11 @@ function Lobby() {
         </motion.div>
       )}
 
-      {/* Referee: subtle start trigger (no red button — just text) */}
-      {isReferee && canStartTournament() && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.6, delay: 1.0 }}
-          className="absolute bottom-8 left-6"
-        >
-          <button
-            onClick={handleStartTournament}
-            className="text-gray-500 hover:text-white text-sm transition-colors"
-          >
-            Tap to start →
-          </button>
-        </motion.div>
-      )}
+      {/* Swipe hint for referee */}
+      <SwipeHint 
+        visible={isReferee && canStartTournament()} 
+        text="↑ Swipe up to start"
+      />
 
       {/* Error */}
       {error && (

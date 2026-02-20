@@ -1,7 +1,8 @@
 import { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import useGameStore from '../stores/gameStore'
+import useLobbyStore from '../stores/lobbyStore'
+import useScoreboardStore from '../stores/scoreboardStore'
 import { fetchScoreboard, fetchPlayerDetail, validateRoomCode } from '../lib/api'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 
@@ -9,15 +10,14 @@ function Scoreboard() {
   const { roomCode } = useParams<{ roomCode: string }>()
   const navigate = useNavigate()
   
+  const { tournament, setTournament } = useLobbyStore()
   const {
-    tournament,
     scoreboardData,
     selectedPlayer,
-    setTournament,
     setScoreboardData,
     setSelectedPlayer,
     clearSelectedPlayer
-  } = useGameStore()
+  } = useScoreboardStore()
 
   // Load scoreboard data on mount
   useEffect(() => {

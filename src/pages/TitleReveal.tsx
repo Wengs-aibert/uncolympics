@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import useGameStore from '../stores/gameStore'
+import useLobbyStore from '../stores/lobbyStore'
+import useTitleStore from '../stores/titleStore'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { fetchTitlesForGame, saveTitles, updateTeamPoints, advanceToNextRound } from '../lib/api'
 import { calculateTitles } from '../lib/titles'
@@ -10,10 +11,8 @@ import { subscribeGame, subscribeTournament } from '../lib/sync'
 function TitleReveal() {
   const { roomCode, gameId } = useParams<{ roomCode: string; gameId: string }>()
   
+  const { tournament, currentPlayer, teams } = useLobbyStore()
   const {
-    tournament,
-    currentPlayer,
-    teams,
     gameTitles,
     revealIndex,
     revealComplete,
@@ -21,7 +20,7 @@ function TitleReveal() {
     setGameTitles,
     nextReveal,
     setIsLastGame
-  } = useGameStore()
+  } = useTitleStore()
   
   const [loading, setLoading] = useState(true)
   const [calculating, setCalculating] = useState(false)
@@ -142,13 +141,8 @@ function TitleReveal() {
     })
     
     // Add points from revealed titles
-    const revealedTitles = gameTitles.slice(0, revealIndex + (revealComplete ? 0 : 1))
-    revealedTitles.forEach(title => {
-      const player = useGameStore.getState().players.find(p => p.id === title.player_id)
-      if (player?.team_id) {
-        teamScores.set(player.team_id, (teamScores.get(player.team_id) || 0) + title.points)
-      }
-    })
+    // const revealedTitles = gameTitles.slice(0, revealIndex + (revealComplete ? 0 : 1))
+    // TODO: Re-implement proper team score calculation with correct player data lookup
     
     return teams.map(team => ({
       ...team,
@@ -268,31 +262,62 @@ function TitleReveal() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.5 }}
+              transition={{ duration: 0.3 }}
             >
-              {/* Title Name */}
-              <motion.h1
-                className={`text-4xl md:text-6xl font-black mb-4 ${
-                  currentTitle.is_funny 
-                    ? 'text-pink-400 drop-shadow-[0_0_20px_rgba(244,114,182,0.7)]' 
-                    : 'text-cyan-400 drop-shadow-[0_0_20px_rgba(34,211,238,0.7)]'
-                }`}
-                initial={{ scale: 0 }}
-                animate={{ scale: [0, 1.2, 1] }}
-                transition={{ duration: 0.8, type: 'spring', bounce: 0.4 }}
-              >
-                {currentTitle.is_funny ? '😂' : '✨'} {currentTitle.title_name}
-              </motion.h1>
-              
-              {/* Player Name */}
+              {/* Dark pause overlay between titles */}
               <motion.div
-                className="text-2xl md:text-3xl font-bold mb-6 text-white"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5, duration: 0.6 }}
+                className="absolute inset-0 bg-black z-10"
+                initial={{ opacity: 1 }}
+                animate={{ opacity: 0 }}
+                transition={{ duration: 0.3, delay: 0.3 }}
+              />
+              
+              {/* Screen shake container */}
+              <motion.div
+                animate={{ 
+                  x: [0, -3, 3, -2, 2, 0],
+                }}
+                transition={{ 
+                  duration: 0.2, 
+                  delay: 1.0,
+                  ease: "easeInOut"
+                }}
               >
-                {currentTitle.playerName}
-              </motion.div>
+                {/* Title Name */}
+                <motion.h1
+                  className={`text-4xl md:text-6xl font-black mb-4 ${
+                    currentTitle.is_funny 
+                      ? 'text-pink-400 drop-shadow-[0_0_20px_rgba(244,114,182,0.7)]' 
+                      : 'text-cyan-400 drop-shadow-[0_0_20px_rgba(34,211,238,0.7)]'
+                  }`}
+                  initial={{ scale: 0 }}
+                  animate={{ scale: [0, 1.3, 1] }}
+                  transition={{ 
+                    duration: 0.8, 
+                    type: 'spring', 
+                    stiffness: 400, 
+                    damping: 15,
+                    delay: 0.6
+                  }}
+                >
+                  {currentTitle.is_funny ? '😂' : '✨'} {currentTitle.title_name}
+                </motion.h1>
+              
+                {/* Player Name */}
+                <motion.div
+                  className="text-2xl md:text-3xl font-bold mb-6 text-white"
+                  initial={{ opacity: 0, y: 50 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ 
+                    delay: 1.1, 
+                    duration: 0.8,
+                    type: 'spring',
+                    stiffness: 300,
+                    damping: 20
+                  }}
+                >
+                  {currentTitle.playerName}
+                </motion.div>
               
               {/* Description */}
               <motion.p
@@ -304,35 +329,52 @@ function TitleReveal() {
                 {currentTitle.title_desc}
               </motion.p>
               
-              {/* Points */}
-              <motion.div
-                className={`inline-block px-6 py-3 rounded-full text-xl font-bold ${
-                  currentTitle.is_funny 
-                    ? 'bg-pink-600/30 border-2 border-pink-400 text-pink-200' 
-                    : 'bg-cyan-600/30 border-2 border-cyan-400 text-cyan-200'
-                }`}
-                initial={{ opacity: 0, scale: 0 }}
-                animate={{ 
-                  opacity: 1, 
-                  scale: 1,
-                  boxShadow: currentTitle.is_funny 
-                    ? '0 0 30px rgba(244,114,182,0.4)' 
-                    : '0 0 30px rgba(34,211,238,0.4)'
-                }}
-                transition={{ delay: 1.2, duration: 0.6 }}
-              >
-                +{currentTitle.points} points
-              </motion.div>
+                {/* Points */}
+                <motion.div
+                  className={`inline-block px-6 py-3 rounded-full text-xl font-bold ${
+                    currentTitle.is_funny 
+                      ? 'bg-pink-600/30 border-2 border-pink-400 text-pink-200' 
+                      : 'bg-yellow-600/30 border-2 border-yellow-400 text-yellow-200'
+                  }`}
+                  initial={{ opacity: 0, scale: 0 }}
+                  animate={{ 
+                    opacity: [0, 1, 0.8, 1], 
+                    scale: 1,
+                    textShadow: currentTitle.is_funny 
+                      ? ['0 0 0px rgba(244,114,182,0)', '0 0 20px rgba(244,114,182,0.8)', '0 0 10px rgba(244,114,182,0.4)', '0 0 15px rgba(244,114,182,0.6)']
+                      : ['0 0 0px rgba(250,204,21,0)', '0 0 20px rgba(250,204,21,0.8)', '0 0 10px rgba(250,204,21,0.4)', '0 0 15px rgba(250,204,21,0.6)'],
+                    boxShadow: currentTitle.is_funny 
+                      ? ['0 0 0px rgba(244,114,182,0)', '0 0 40px rgba(244,114,182,0.6)', '0 0 20px rgba(244,114,182,0.3)', '0 0 30px rgba(244,114,182,0.4)']
+                      : ['0 0 0px rgba(250,204,21,0)', '0 0 40px rgba(250,204,21,0.6)', '0 0 20px rgba(250,204,21,0.3)', '0 0 30px rgba(250,204,21,0.4)']
+                  }}
+                  transition={{ 
+                    delay: 1.6, 
+                    duration: 1.5,
+                    repeat: Infinity,
+                    repeatType: "reverse"
+                  }}
+                >
+                  +{currentTitle.points} points
+                </motion.div>
               
-              {/* Tap hint */}
-              <motion.p
-                className="absolute bottom-20 left-4 right-4 text-center text-gray-400 text-sm"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 2 }}
-              >
-                Tap anywhere to continue
-              </motion.p>
+                {/* Pulsing tap to continue */}
+                <motion.p
+                  className="absolute bottom-20 left-4 right-4 text-center text-gray-300 text-lg font-semibold"
+                  initial={{ opacity: 0 }}
+                  animate={{ 
+                    opacity: [0, 1, 0.4, 1],
+                    scale: [1, 1.05, 0.95, 1]
+                  }}
+                  transition={{ 
+                    delay: 2.5,
+                    duration: 2,
+                    repeat: Infinity,
+                    repeatType: "loop"
+                  }}
+                >
+                  ✨ Tap to continue ✨
+                </motion.p>
+              </motion.div>
             </motion.div>
           ) : (
             // All titles revealed

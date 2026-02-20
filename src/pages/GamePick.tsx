@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
-import useGameStore from '../stores/gameStore'
+import useLobbyStore from '../stores/lobbyStore'
+import useGamePlayStore from '../stores/gamePlayStore'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { subscribeTournament } from '../lib/sync'
 import { fetchAvailableGames, fetchPickState, pickGame } from '../lib/api'
@@ -30,7 +31,7 @@ function ConfirmModal({ game, onConfirm, onCancel }: ConfirmModalProps) {
           initial={{ scale: 0.8, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.8, opacity: 0 }}
-          className="bg-gray-900 border border-gray-700 rounded-lg p-6 max-w-md w-full"
+          className="glass-panel p-6 max-w-md w-full"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="text-center">
@@ -43,13 +44,13 @@ function ConfirmModal({ game, onConfirm, onCancel }: ConfirmModalProps) {
             <div className="flex gap-3">
               <button
                 onClick={onCancel}
-                className="flex-1 py-2 px-4 border border-gray-600 rounded-lg text-gray-300 hover:text-white hover:border-gray-500 transition-colors"
+                className="flex-1 py-2 px-4 glass-panel text-secondary hover:text-primary transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={onConfirm}
-                className="flex-1 py-2 px-4 bg-green-500 hover:bg-green-600 rounded-lg text-white font-semibold transition-colors shadow-lg shadow-green-500/20"
+                className="flex-1 py-2 px-4 bg-navy hover:bg-navy-alt rounded-lg text-primary font-semibold transition-colors"
               >
                 Confirm
               </button>
@@ -69,10 +70,8 @@ function GamePick() {
   const [error, setError] = useState<string | null>(null)
   const [showCustomGameCreator, setShowCustomGameCreator] = useState(false)
   
+  const { tournament, currentPlayer, teams, connectionStatus } = useLobbyStore()
   const {
-    tournament,
-    currentPlayer,
-    teams,
     availableGames,
     pickedGames,
     currentPickTeam,
@@ -80,9 +79,8 @@ function GamePick() {
     setAvailableGames,
     setPickedGames,
     setCurrentPickTeam,
-    setCurrentRound,
-    connectionStatus
-  } = useGameStore()
+    setCurrentRound
+  } = useGamePlayStore()
 
   // Load initial data
   useEffect(() => {
@@ -174,12 +172,12 @@ function GamePick() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-4">
-        <div className="text-center max-w-md">
-          <p className="text-red-400 mb-4">{error}</p>
+      <div className="min-h-screen app-container flex items-center justify-center">
+        <div className="text-center max-w-md glass-panel p-6">
+          <p className="text-red mb-4">{error}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded-lg text-white transition-colors"
+            className="px-4 py-2 glass-panel hover:bg-navy text-primary transition-colors"
           >
             Retry
           </button>
@@ -189,39 +187,32 @@ function GamePick() {
   }
 
   const currentTeam = teams.find(team => team.id === currentPickTeam)
-  const currentLeader = currentPlayer && useGameStore.getState().players
+  const { players } = useLobbyStore()
+  const currentLeader = currentPlayer && players
     .find(player => player.team_id === currentPickTeam && player.is_leader)
   
   const isCurrentLeader = currentPlayer?.id === currentLeader?.id
   const isReferee = currentPlayer?.role === 'referee'
   const totalRounds = tournament?.num_games || 0
   
-  // Determine team color - first team is cyan, second is pink
-  const sortedTeams = [...teams].sort((a, b) => 
-    new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-  )
-  const teamColor = sortedTeams[0]?.id === currentPickTeam ? 'cyan' : 'pink'
-
   return (
-    <div className="min-h-screen bg-black p-4">
+    <div className="min-h-screen app-container">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white mb-2">
+          <h1 className="text-3xl font-heading text-primary mb-2">
             ROUND {currentRound}/{totalRounds}
           </h1>
           
           {/* Turn indicator */}
-          <div className={`text-xl font-semibold mb-2 ${
-            teamColor === 'cyan' ? 'text-cyan-400' : 'text-pink-400'
-          }`}>
+          <div className="text-xl font-heading text-navy mb-2">
             {currentTeam?.name}'s turn to pick
           </div>
           
           {/* Leader name */}
           {currentLeader && (
-            <p className="text-gray-400">
-              Leader: <span className="text-white font-medium">{currentLeader.name}</span>
+            <p className="text-secondary">
+              Leader: <span className="text-primary font-medium">{currentLeader.name}</span>
             </p>
           )}
           
@@ -237,38 +228,38 @@ function GamePick() {
 
         {/* Waiting message for non-leaders */}
         {!isCurrentLeader && currentLeader && (
-          <div className="mb-8 p-4 bg-gray-900/50 border border-gray-700 rounded-lg text-center">
-            <p className="text-gray-300">
-              Waiting for <span className="text-white font-medium">{currentLeader.name}</span> to pick...
+          <div className="mb-8 p-4 glass-panel text-center">
+            <p className="text-secondary">
+              Waiting for <span className="text-primary font-medium">{currentLeader.name}</span> to pick...
             </p>
           </div>
         )}
 
         {/* Available Games */}
         <div className="mb-8">
-          <h2 className="text-xl font-semibold text-white mb-4">Available Games</h2>
+          <h2 className="text-xl font-heading text-primary mb-4">Available Games</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {availableGames.map((gameType) => (
               <motion.div
                 key={gameType.id}
                 whileHover={isCurrentLeader ? { scale: 1.02 } : {}}
-                className={`p-4 bg-gray-900 border border-gray-700 rounded-lg transition-all ${
+                className={`p-4 glass-panel transition-all ${
                   isCurrentLeader 
-                    ? 'cursor-pointer hover:border-cyan-400 hover:shadow-lg hover:shadow-cyan-400/20' 
+                    ? 'cursor-pointer hover:border-[var(--accent-secondary)] hover:shadow-lg hover:shadow-blue-900/20' 
                     : 'cursor-not-allowed opacity-60'
                 }`}
                 onClick={() => isCurrentLeader && setSelectedGame(gameType)}
               >
                 <div className="text-3xl mb-2">{gameType.emoji}</div>
-                <h3 className="font-bold text-white mb-2">{gameType.name}</h3>
-                <p className="text-gray-400 text-sm mb-2">{gameType.description}</p>
-                <p className="text-xs text-gray-500">~20 min</p>
+                <h3 className="font-heading text-primary mb-2">{gameType.name}</h3>
+                <p className="text-secondary text-sm mb-2">{gameType.description}</p>
+                <p className="text-xs text-secondary">~20 min</p>
               </motion.div>
             ))}
           </div>
           
           {availableGames.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
+            <div className="text-center py-8 text-secondary">
               No games available to pick
             </div>
           )}
@@ -278,7 +269,7 @@ function GamePick() {
             <div className="mt-6 text-center">
               <button
                 onClick={() => setShowCustomGameCreator(true)}
-                className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-lg transition-colors shadow-lg shadow-purple-500/20 border border-purple-500"
+                className="px-6 py-3 bg-navy hover:bg-navy-alt text-primary font-medium rounded-lg transition-colors"
               >
                 + Create Custom Game
               </button>
@@ -290,9 +281,9 @@ function GamePick() {
         {pickedGames.length > 0 && (
           <div>
             <div className="flex items-center gap-4 mb-4">
-              <div className="flex-1 h-px bg-gray-700"></div>
-              <span className="text-gray-500 font-medium">Already Picked</span>
-              <div className="flex-1 h-px bg-gray-700"></div>
+              <div className="flex-1 h-px bg-[var(--glass-border)]"></div>
+              <span className="text-secondary font-heading">Already Picked</span>
+              <div className="flex-1 h-px bg-[var(--glass-border)]"></div>
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -305,11 +296,11 @@ function GamePick() {
                 return (
                   <div
                     key={game.id}
-                    className="p-4 bg-gray-800/50 border border-gray-600 rounded-lg opacity-60"
+                    className="p-4 glass-panel opacity-60"
                   >
                     <div className="text-2xl mb-2">{gameType?.emoji}</div>
-                    <h3 className="font-bold text-gray-300 mb-1">{gameType?.name}</h3>
-                    <p className="text-gray-500 text-xs">
+                    <h3 className="font-heading text-secondary mb-1">{gameType?.name}</h3>
+                    <p className="text-secondary text-xs">
                       Picked by {pickingTeam?.name}
                     </p>
                   </div>

@@ -1,7 +1,7 @@
-import useGameStore from '../../stores/gameStore';
+import useLobbyStore from '../../stores/lobbyStore';
 
 export function ConnectionBanner() {
-  const connectionStatus = useGameStore(s => s.connectionStatus);
+  const connectionStatus = useLobbyStore(s => s.connectionStatus);
   
   if (connectionStatus === 'connected' || !connectionStatus) return null;
   

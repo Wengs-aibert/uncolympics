@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
+import useLobbyStore from '../stores/lobbyStore'
+import useCeremonyStore from '../stores/ceremonyStore'
 import useGameStore from '../stores/gameStore'
 import { LoadingSpinner } from '../components/ui/LoadingSpinner'
 import { fetchCeremonyData, saveGlobalTitles, updateTeamPoints, validateRoomCode } from '../lib/api'
@@ -11,10 +13,8 @@ function Ceremony() {
   const { roomCode } = useParams<{ roomCode: string }>()
   const navigate = useNavigate()
 
+  const { currentPlayer, tournament, setTournament } = useLobbyStore()
   const { 
-    currentPlayer, 
-    tournament, 
-    setTournament,
     globalTitles,
     winningTeam,
     isTied,
@@ -24,9 +24,9 @@ function Ceremony() {
     setWinningTeam,
     setIsTied,
     setCeremonyPhase,
-    nextCeremonyReveal,
-    reset
-  } = useGameStore()
+    nextCeremonyReveal
+  } = useCeremonyStore()
+  const { reset } = useGameStore()
 
   const [ceremonyData, setCeremonyData] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
@@ -159,9 +159,33 @@ function Ceremony() {
 
   return (
     <div 
-      className="min-h-screen bg-gradient-to-br from-gray-900 via-black to-gray-800 text-white relative overflow-hidden" 
+      className="min-h-screen text-white relative overflow-hidden" 
+      style={{
+        background: ceremonyPhase === 'global_titles' 
+          ? `radial-gradient(circle at 50% 50%, rgba(250,204,21,0.15) 0%, rgba(250,204,21,0.05) 30%, transparent 60%), linear-gradient(135deg, #111827 0%, #000000 50%, #374151 100%)`
+          : `linear-gradient(135deg, #111827 0%, #000000 50%, #374151 100%)`
+      }}
       onClick={handleTap}
     >
+      {/* Pulsing spotlight effect for global titles */}
+      {ceremonyPhase === 'global_titles' && (
+        <motion.div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: `radial-gradient(circle at 50% 50%, rgba(250,204,21,0.2) 0%, rgba(250,204,21,0.08) 25%, transparent 50%)`
+          }}
+          animate={{
+            opacity: [0.3, 0.8, 0.3],
+            scale: [0.8, 1.1, 0.8]
+          }}
+          transition={{
+            duration: 4,
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
+        />
+      )}
+      
       {/* Confetti effect */}
       <Confetti show={showConfetti} />
 
@@ -274,16 +298,16 @@ function Ceremony() {
                 <motion.div
                   className="text-8xl mb-6"
                   initial={{ scale: 0, rotate: -180 }}
-                  animate={{ scale: [0, 1.5, 1], rotate: 0 }}
-                  transition={{ delay: 3.5, duration: 1, type: 'spring', stiffness: 400, damping: 15 }}
+                  animate={{ scale: [0, 2.0, 1], rotate: 0 }}
+                  transition={{ delay: 3.5, duration: 1.2, type: 'spring', stiffness: 400, damping: 15 }}
                 >
                   🏆
                 </motion.div>
                 <motion.h1
                   className="text-4xl md:text-6xl font-black mb-4 bg-gradient-to-r from-yellow-300 via-yellow-400 to-amber-500 bg-clip-text text-transparent drop-shadow-[0_0_30px_rgba(250,204,21,0.6)]"
                   initial={{ scale: 0 }}
-                  animate={{ scale: [0, 1.5, 1] }}
-                  transition={{ delay: 3.5, duration: 1, type: 'spring', stiffness: 400, damping: 15 }}
+                  animate={{ scale: [0, 2.0, 1] }}
+                  transition={{ delay: 3.5, duration: 1.2, type: 'spring', stiffness: 400, damping: 15 }}
                 >
                   {winningTeam.name} WINS!
                 </motion.h1>

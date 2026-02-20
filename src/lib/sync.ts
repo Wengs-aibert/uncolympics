@@ -1,4 +1,5 @@
 import { supabase } from './supabase';
+import { appNavigate } from './navigation';
 import useGameStore from '../stores/gameStore';
 import type { Tournament, Player, Team, LeaderVote, Game, PlayerStat, GameResult, Title } from '../types';
 
@@ -60,13 +61,13 @@ export function subscribeTournament(tournamentId: string) {
           // Navigate to pick page
           const currentUrl = window.location.pathname;
           if (!currentUrl.includes('/pick')) {
-            window.location.href = `/game/${tournament.room_code}/pick`;
+            appNavigate(`/game/${tournament.room_code}/pick`);
           }
         } else if (tournament.status === 'completed') {
           // Navigate to ceremony
           const currentUrl = window.location.pathname;
           if (!currentUrl.includes('/ceremony')) {
-            window.location.href = `/ceremony/${tournament.room_code}`;
+            appNavigate(`/ceremony/${tournament.room_code}`);
           }
         }
       }
@@ -173,7 +174,7 @@ export function subscribeGame(gameId: string, tournamentId: string) {
         if (game.status === 'titles') {
           const tournament = store.tournament;
           if (tournament) {
-            window.location.href = `/game/${tournament.room_code}/reveal/${gameId}`;
+            appNavigate(`/game/${tournament.room_code}/reveal/${gameId}`);
           }
         }
       }

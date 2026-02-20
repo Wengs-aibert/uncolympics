@@ -1,8 +1,9 @@
-import { BrowserRouter as Router, Routes, Route, useLocation } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom'
 import { AnimatePresence } from 'framer-motion'
 import { useEffect } from 'react'
 import Layout from './components/Layout'
 import { PageTransition } from './components/PageTransition'
+import { setNavigate } from './lib/navigation'
 
 // Import page components
 import Home from './pages/Home'
@@ -15,6 +16,12 @@ import TitleReveal from './pages/TitleReveal'
 import Scoreboard from './pages/Scoreboard'
 import Ceremony from './pages/Ceremony'
 import History from './pages/History'
+
+function NavigationSetter() {
+  const navigate = useNavigate();
+  useEffect(() => { setNavigate(navigate); }, [navigate]);
+  return null;
+}
 
 function ScrollToTop() {
   const { pathname } = useLocation();
@@ -29,6 +36,7 @@ function ScrollToTop() {
 function App() {
   return (
     <Router>
+      <NavigationSetter />
       <ScrollToTop />
       <Layout>
         <AnimatePresence mode="wait">
