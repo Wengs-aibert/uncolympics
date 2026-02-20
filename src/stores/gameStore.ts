@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { Tournament, Player, Team, Game, Title, PlayerStat, LeaderVote } from '../types'
+import type { Tournament, Player, Team, Game, Title, PlayerStat, LeaderVote, GameType } from '../types'
 
 interface GameStore {
   // State
@@ -12,6 +12,12 @@ interface GameStore {
   currentGame: Game | null
   titles: Title[]
   playerStats: PlayerStat[]
+  
+  // Sprint 3: Game Pick state
+  availableGames: GameType[]
+  pickedGames: Game[]
+  currentPickTeam: string | null
+  currentRound: number
   
   // Actions
   setTournament: (tournament: Tournament) => void
@@ -38,6 +44,13 @@ interface GameStore {
   // Connection status
   setConnectionStatus: (status: 'connected' | 'reconnecting' | 'disconnected') => void
   
+  // Sprint 3: Game Pick actions
+  setAvailableGames: (games: GameType[]) => void
+  setPickedGames: (games: Game[]) => void
+  setCurrentPickTeam: (teamId: string | null) => void
+  setCurrentRound: (round: number) => void
+  addPickedGame: (game: Game) => void
+  
   // Legacy actions (keeping for existing functionality)
   setTeam: (playerId: string, teamId: string) => void
   setGame: (game: Game) => void
@@ -57,6 +70,12 @@ const useGameStore = create<GameStore>((set) => ({
   currentGame: null,
   titles: [],
   playerStats: [],
+  
+  // Sprint 3: Game Pick initial state
+  availableGames: [],
+  pickedGames: [],
+  currentPickTeam: null,
+  currentRound: 1,
   
   // Actions
   setTournament: (tournament) => set({ tournament }),
@@ -120,6 +139,21 @@ const useGameStore = create<GameStore>((set) => ({
   // Connection status
   setConnectionStatus: (status) => set({ connectionStatus: status }),
   
+  // Sprint 3: Game Pick actions
+  setAvailableGames: (games) => set({ availableGames: games }),
+  
+  setPickedGames: (games) => set({ pickedGames: games }),
+  
+  setCurrentPickTeam: (teamId) => set({ currentPickTeam: teamId }),
+  
+  setCurrentRound: (round) => set({ currentRound: round }),
+  
+  addPickedGame: (game) => set((state) => ({
+    pickedGames: [...state.pickedGames, game],
+    // Remove the game type from available games
+    availableGames: state.availableGames.filter(gt => gt.id !== game.game_type_id)
+  })),
+  
   // Legacy actions (keeping for existing functionality)
   setTeam: (playerId, teamId) => set((state) => ({
     players: state.players.map(p => 
@@ -146,7 +180,12 @@ const useGameStore = create<GameStore>((set) => ({
     connectionStatus: 'disconnected',
     currentGame: null,
     titles: [],
-    playerStats: []
+    playerStats: [],
+    // Reset Sprint 3 state too
+    availableGames: [],
+    pickedGames: [],
+    currentPickTeam: null,
+    currentRound: 1
   })
 }))
 

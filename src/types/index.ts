@@ -68,3 +68,16 @@ export interface LeaderVote {
   candidate_id: string
   created_at: string
 }
+
+// Sprint 3: Game Types
+export interface GameType {
+  id: string
+  tournament_id: string | null
+  name: string
+  emoji: string
+  description: string
+  player_inputs: Record<string, any>
+  referee_inputs: Record<string, any>
+  title_definitions: Record<string, any>
+  created_at: string
+}

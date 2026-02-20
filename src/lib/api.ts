@@ -1,5 +1,5 @@
 import { supabase } from './supabase'
-import type { Tournament, Player, Team, LeaderVote } from '../types'
+import type { Tournament, Player, Team, LeaderVote, GameType, Game } from '../types'
 
 // API Functions
 
@@ -484,4 +484,245 @@ export async function startTournament(
   }
 
   return tournament;
+}
+
+// Sprint 3: Game Pick Functions
+
+export async function fetchAvailableGames(
+  tournamentId: string
+): Promise<{ available: GameType[]; picked: Game[] }> {
+  // Get all game_types where tournament_id IS NULL (built-ins) OR tournament_id = tournamentId (custom)
+  const { data: gameTypes, error: gameTypesError } = await supabase
+    .from('game_types')
+    .select('*')
+    .or(`tournament_id.is.null,tournament_id.eq.${tournamentId}`)
+    .order('created_at');
+
+  if (gameTypesError) {
+    throw new Error(`Failed to fetch game types: ${gameTypesError.message}`);
+  }
+
+  // Get all games where tournament_id = tournamentId (already picked)
+  const { data: pickedGames, error: pickedGamesError } = await supabase
+    .from('games')
+    .select(`
+      *,
+      game_type:game_types(*)
+    `)
+    .eq('tournament_id', tournamentId)
+    .order('game_order');
+
+  if (pickedGamesError) {
+    throw new Error(`Failed to fetch picked games: ${pickedGamesError.message}`);
+  }
+
+  // Filter: remove game_types whose id matches any picked game's game_type_id
+  const pickedGameTypeIds = new Set((pickedGames || []).map(game => game.game_type_id));
+  const availableGameTypes = (gameTypes || []).filter(gameType => 
+    !pickedGameTypeIds.has(gameType.id)
+  );
+
+  return {
+    available: availableGameTypes,
+    picked: pickedGames || []
+  };
+}
+
+export async function fetchPickState(
+  tournamentId: string
+): Promise<{
+  tournament: Tournament;
+  currentPickTeam: Team;
+  currentLeader: Player;
+  roundNumber: number;
+  totalRounds: number;
+  teams: Team[];
+  gamesPlayed: Game[];
+}> {
+  // Get tournament (current_pick_team, num_games, status)
+  const { data: tournament, error: tournamentError } = await supabase
+    .from('tournaments')
+    .select('*')
+    .eq('id', tournamentId)
+    .single();
+
+  if (tournamentError || !tournament) {
+    throw new Error(`Failed to fetch tournament: ${tournamentError?.message}`);
+  }
+
+  // Get all games for tournament (count = round number)
+  const { data: games, error: gamesError } = await supabase
+    .from('games')
+    .select(`
+      *,
+      game_type:game_types(*)
+    `)
+    .eq('tournament_id', tournamentId)
+    .order('game_order');
+
+  if (gamesError) {
+    throw new Error(`Failed to fetch games: ${gamesError.message}`);
+  }
+
+  // Get teams + their players (to find leader names)
+  const { data: teams, error: teamsError } = await supabase
+    .from('teams')
+    .select(`
+      *,
+      players(*)
+    `)
+    .eq('tournament_id', tournamentId)
+    .order('created_at');
+
+  if (teamsError) {
+    throw new Error(`Failed to fetch teams: ${teamsError.message}`);
+  }
+
+  // Find current pick team
+  const currentPickTeam = teams?.find(team => team.id === tournament.current_pick_team);
+  if (!currentPickTeam) {
+    throw new Error('Current pick team not found');
+  }
+
+  // Find current leader
+  const currentLeader = currentPickTeam.players.find((player: Player) => player.is_leader);
+  if (!currentLeader) {
+    throw new Error('Current team has no leader');
+  }
+
+  const roundNumber = (games || []).length + 1;
+  const totalRounds = tournament.num_games;
+
+  return {
+    tournament,
+    currentPickTeam,
+    currentLeader,
+    roundNumber,
+    totalRounds,
+    teams: teams || [],
+    gamesPlayed: games || []
+  };
+}
+
+export async function pickGame(
+  tournamentId: string,
+  teamId: string,
+  gameTypeId: string,
+  playerId: string
+): Promise<{ game: Game; tournament: Tournament }> {
+  // Validate: tournament.status = 'picking'
+  const { data: tournament, error: tournamentError } = await supabase
+    .from('tournaments')
+    .select('*')
+    .eq('id', tournamentId)
+    .single();
+
+  if (tournamentError || !tournament) {
+    throw new Error(`Failed to fetch tournament: ${tournamentError?.message}`);
+  }
+
+  if (tournament.status !== 'picking') {
+    throw new Error('Tournament is not in picking phase');
+  }
+
+  // Validate: teamId = tournament.current_pick_team
+  if (teamId !== tournament.current_pick_team) {
+    throw new Error('It is not this team\'s turn to pick');
+  }
+
+  // Validate: player with playerId has is_leader = true on that team
+  const { data: player, error: playerError } = await supabase
+    .from('players')
+    .select('*')
+    .eq('id', playerId)
+    .eq('team_id', teamId)
+    .single();
+
+  if (playerError || !player) {
+    throw new Error(`Failed to fetch player: ${playerError?.message}`);
+  }
+
+  if (!player.is_leader) {
+    throw new Error('Only team leaders can pick games');
+  }
+
+  // Validate: gameTypeId not already in games for this tournament
+  const { data: existingGame, error: existingGameError } = await supabase
+    .from('games')
+    .select('id')
+    .eq('tournament_id', tournamentId)
+    .eq('game_type_id', gameTypeId)
+    .single();
+
+  if (existingGame) {
+    throw new Error('This game has already been picked');
+  }
+
+  if (existingGameError && existingGameError.code !== 'PGRST116') { // PGRST116 = no rows found
+    throw new Error(`Failed to check existing games: ${existingGameError.message}`);
+  }
+
+  // Calculate game_order = count of existing games for tournament + 1
+  const { count: gameCount, error: countError } = await supabase
+    .from('games')
+    .select('id', { count: 'exact' })
+    .eq('tournament_id', tournamentId);
+
+  if (countError) {
+    throw new Error(`Failed to count games: ${countError.message}`);
+  }
+
+  const gameOrder = (gameCount || 0) + 1;
+
+  // Insert into games
+  const { data: newGame, error: gameInsertError } = await supabase
+    .from('games')
+    .insert({
+      tournament_id: tournamentId,
+      game_type_id: gameTypeId,
+      status: 'active',
+      picked_by_team: teamId,
+      game_order: gameOrder
+    })
+    .select(`
+      *,
+      game_type:game_types(*)
+    `)
+    .single();
+
+  if (gameInsertError || !newGame) {
+    throw new Error(`Failed to create game: ${gameInsertError?.message}`);
+  }
+
+  // Get other team: query teams where tournament_id = tournamentId AND id != teamId
+  const { data: otherTeam, error: otherTeamError } = await supabase
+    .from('teams')
+    .select('id')
+    .eq('tournament_id', tournamentId)
+    .neq('id', teamId)
+    .single();
+
+  if (otherTeamError || !otherTeam) {
+    throw new Error(`Failed to find other team: ${otherTeamError?.message}`);
+  }
+
+  // Update tournament: set current_pick_team to other team's id, set status to 'playing'
+  const { data: updatedTournament, error: updateError } = await supabase
+    .from('tournaments')
+    .update({
+      current_pick_team: otherTeam.id,
+      status: 'playing'
+    })
+    .eq('id', tournamentId)
+    .select()
+    .single();
+
+  if (updateError || !updatedTournament) {
+    throw new Error(`Failed to update tournament: ${updateError?.message}`);
+  }
+
+  return {
+    game: newGame,
+    tournament: updatedTournament
+  };
 }

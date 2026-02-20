@@ -1,6 +1,6 @@
 import { supabase } from './supabase';
 import useGameStore from '../stores/gameStore';
-import type { Tournament, Player, Team, LeaderVote } from '../types';
+import type { Tournament, Player, Team, LeaderVote, Game } from '../types';
 
 export function subscribeTournament(tournamentId: string) {
   const channel = supabase.channel(`tournament:${tournamentId}`)
@@ -72,6 +72,16 @@ export function subscribeTournament(tournamentId: string) {
       } else if (payload.eventType === 'DELETE') {
         store.removeVote(payload.old.id);
       }
+    })
+    .on('postgres_changes', {
+      event: 'INSERT',
+      schema: 'public', 
+      table: 'games',
+      filter: `tournament_id=eq.${tournamentId}`
+    }, (payload) => {
+      const store = useGameStore.getState();
+      // When a new game is picked, add it to the store
+      store.addPickedGame(payload.new as Game);
     })
     .subscribe((status) => {
       const store = useGameStore.getState();
