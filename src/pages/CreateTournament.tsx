@@ -88,6 +88,16 @@ function CreateTournament() {
 
   return (
     <div ref={swipeHintRef} className="flex flex-col items-center justify-center min-h-screen relative">
+      {/* Back navigation - disappears instantly when transitioning */}
+      {!transitioning && (
+        <button
+          onClick={handleBackNavigation}
+          className="absolute top-8 left-8 text-secondary hover:text-primary transition-colors text-2xl z-10"
+        >
+          ←
+        </button>
+      )}
+
       {/* Form fields — animate out on transition */}
       <AnimatePresence>
         {!transitioning && (
@@ -96,13 +106,6 @@ function CreateTournament() {
             exit={{ y: -500, opacity: 0 }}
             transition={{ duration: 0.5, ease: 'easeIn' }}
           >
-            {/* Back navigation */}
-            <button
-              onClick={handleBackNavigation}
-              className="absolute top-8 left-8 text-secondary hover:text-primary transition-colors text-2xl"
-            >
-              ←
-            </button>
 
             {/* Ref Name */}
             <motion.div
