@@ -18,17 +18,18 @@ function CreateTournament() {
   }, []);
   
   const [refereeName, setRefereeName] = useState('')
-  const [numGames, setNumGames] = useState('3')
+  const [numGames, setNumGames] = useState('')
   const [roomCode, setRoomCode] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const isFormValid = refereeName.trim() !== '' && roomCode.trim() !== ''
+  const isFormValid = refereeName.trim() !== '' && roomCode.trim() !== '' && numGames.trim() !== ''
 
   const validateForm = (): string | null => {
     if (!refereeName.trim()) return 'Ref name is required'
     if (!roomCode.trim()) return 'Lobby code is required'
     if (roomCode.length > 5) return 'Lobby code must be 5 characters or less'
     if (!/^[A-Z0-9]+$/i.test(roomCode)) return 'Lobby code must be alphanumeric'
+    if (!numGames.trim()) return 'Number of games is required'
     const games = parseInt(numGames)
     if (isNaN(games) || games < 1 || games > 10) return 'Games must be between 1 and 10'
     return null
@@ -150,7 +151,7 @@ function CreateTournament() {
       {/* Swipe hint */}
       <SwipeHint 
         visible={!loading} 
-        text={isFormValid ? "↑ Swipe up to create" : "Fill ref name & lobby code"}
+        text={isFormValid ? "↑ Swipe up to create" : "Fill ref name, games & lobby code"}
       />
     </div>
   )
