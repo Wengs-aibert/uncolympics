@@ -100,7 +100,7 @@ function JoinTournament() {
           value={playerName}
           onChange={(e) => setPlayerName(e.target.value)}
           placeholder="Name"
-          className="seamless-input text-4xl sm:text-5xl md:text-6xl font-heading text-primary text-center w-full"
+          className="seamless-input text-4xl md:text-5xl font-heading text-primary text-center w-full"
           autoComplete="off"
         />
       </motion.div>
@@ -118,7 +118,7 @@ function JoinTournament() {
           onChange={(e) => setRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5))}
           placeholder="Lobby #"
           maxLength={5}
-          className="seamless-input text-4xl sm:text-5xl md:text-6xl font-heading text-primary text-center w-full tracking-wider uppercase"
+          className="seamless-input text-4xl md:text-5xl font-heading text-primary text-center w-full tracking-wider uppercase"
           autoComplete="off"
         />
       </motion.div>
