@@ -195,6 +195,13 @@ function Lobby() {
         connectionStatus === 'reconnecting' ? 'bg-yellow-400' : 'bg-red-400'
       }`} title={connectionStatus || 'unknown'} />
 
+      {/* Lobby Code Display */}
+      <div className="mb-4">
+        <div className="font-heading text-3xl text-gray-500 leading-tight">
+          LOBBY {roomCode?.toUpperCase()}
+        </div>
+      </div>
+
       {/* Player Names — top-left aligned, bottom-to-top slide-in */}
       <div className="flex flex-col items-start space-y-2 w-full">
         <AnimatePresence>
