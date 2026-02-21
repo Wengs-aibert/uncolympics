@@ -229,7 +229,16 @@ export function subscribeGame(gameId: string, tournamentId: string) {
       // Update team in store (this will update total_points)
       store.updateTeam(updatedTeam);
     })
-    .subscribe();
+    .subscribe((status) => {
+      const store = useGameStore.getState();
+      if (status === 'SUBSCRIBED') {
+        store.setConnectionStatus('connected');
+      } else if (status === 'CLOSED') {
+        store.setConnectionStatus('disconnected');
+      } else if (status === 'CHANNEL_ERROR') {
+        store.setConnectionStatus('reconnecting');
+      }
+    });
     
   return () => supabase.removeChannel(channel);
 }

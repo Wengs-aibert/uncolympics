@@ -127,6 +127,7 @@ export function useReconnect(shouldNavigate: boolean = true): ReconnectStatus {
         unsubRef.current()
         unsubRef.current = null
       }
+      hasRun.current = false
     }
   }, []) // Empty deps — run once on mount
 
