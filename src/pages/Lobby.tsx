@@ -8,17 +8,22 @@ import {
   createTeam, 
   joinTeam, 
   voteForLeader, 
-  startTournament 
+  startTournament,
+  cancelTournament,
+  leaveTournament
 } from '../lib/api'
 import { toast } from '../lib/toast'
 import { useSwipeUp } from '../hooks/useSwipeUp'
+import { useSwipeDown } from '../hooks/useSwipeDown'
 import { SwipeHint } from '../components/ui/SwipeHint'
+import { ConfirmModal } from '../components/ui/ConfirmModal'
 
 function Lobby() {
   const { roomCode } = useParams<{ roomCode: string }>()
   const navigate = useNavigate()
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showConfirmModal, setShowConfirmModal] = useState(false)
 
   const {
     tournament,
@@ -110,6 +115,33 @@ function Lobby() {
     }
   }
 
+  const handleSwipeDown = () => {
+    setShowConfirmModal(true)
+  }
+
+  const handleConfirmAction = async () => {
+    if (!tournament || !currentPlayer) return
+    
+    try {
+      if (isReferee) {
+        await cancelTournament(tournament.id)
+        toast.success('Tournament cancelled')
+      } else {
+        await leaveTournament(currentPlayer.id)
+        toast.success('Left tournament')
+      }
+      navigate('/')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Action failed')
+    } finally {
+      setShowConfirmModal(false)
+    }
+  }
+
+  const handleCancelAction = () => {
+    setShowConfirmModal(false)
+  }
+
   const canStartTournament = (): boolean => {
     const activePlayers = players.filter(p => p.role !== 'spectator')
     return activePlayers.length >= 2
@@ -125,9 +157,15 @@ function Lobby() {
   const isReferee = currentPlayer?.role === 'referee'
 
   // Add swipe-up functionality for referees
-  const { swipeHintRef } = useSwipeUp({
+  const { swipeHintRef: swipeUpRef } = useSwipeUp({
     onSwipe: handleStartTournament,
     enabled: isReferee && canStartTournament()
+  })
+
+  // Add swipe-down functionality for all users
+  const { swipeHintRef: swipeDownRef } = useSwipeDown({
+    onSwipe: handleSwipeDown,
+    enabled: true // Always enabled for exit functionality
   })
 
   if (isLoading) {
@@ -143,7 +181,14 @@ function Lobby() {
   }
 
   return (
-    <div ref={swipeHintRef} className="min-h-screen flex flex-col relative px-6 pt-8">
+    <>
+    <div 
+      ref={(el) => {
+        (swipeUpRef as any).current = el;
+        (swipeDownRef as any).current = el;
+      }}
+      className="min-h-screen flex flex-col relative px-6 pt-8"
+    >
       {/* Connection status indicator */}
       <div className={`absolute top-4 right-4 w-3 h-3 rounded-full ${
         connectionStatus === 'connected' ? 'bg-green-400' : 
@@ -221,6 +266,15 @@ function Lobby() {
         </motion.div>
       )}
     </div>
+
+    {/* Confirm Modal */}
+    <ConfirmModal
+      isOpen={showConfirmModal}
+      message={isReferee ? "Cancel this tournament?" : "You sure unc?"}
+      onConfirm={handleConfirmAction}
+      onCancel={handleCancelAction}
+    />
+    </>
   )
 }
 
