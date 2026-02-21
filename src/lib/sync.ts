@@ -56,8 +56,18 @@ export function subscribeTournament(tournamentId: string) {
         const tournament = payload.new as Tournament;
         store.setTournament(tournament);
         
+        // Also update lobbyStore if it exists
+        try {
+          import('../stores/lobbyStore').then(m => m.default.getState().setTournament(tournament));
+        } catch (e) {}
+
         // Handle navigation based on tournament status changes
-        if (tournament.status === 'picking') {
+        if (tournament.status === 'team_select') {
+          const currentUrl = window.location.pathname;
+          if (!currentUrl.includes('/team-select')) {
+            appNavigate(`/team-select/${tournament.room_code}`);
+          }
+        } else if (tournament.status === 'picking') {
           // Navigate to pick page
           const currentUrl = window.location.pathname;
           if (!currentUrl.includes('/pick')) {
