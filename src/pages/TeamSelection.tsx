@@ -130,8 +130,12 @@ function TeamSelection() {
         setTimeout(async () => {
           try {
             await startTournament(tournament.id)
+            // Safety: navigate directly in case realtime is slow
+            navigate(`/game/${tournament.room_code}/pick`)
           } catch (err) {
+            console.error('startTournament failed:', err)
             toast.error('Failed to start tournament')
+            setPhase('locked')
           }
         }, 2500)
       }, 2500)

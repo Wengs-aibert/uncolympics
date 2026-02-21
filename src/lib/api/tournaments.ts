@@ -304,20 +304,24 @@ export async function assignRandomLeaders(tournamentId: string): Promise<void> {
   if (teamsError) throw new Error(`Failed to fetch teams: ${teamsError.message}`)
 
   // Reset all leaders first
-  await supabase
+  const { error: resetError } = await supabase
     .from('players')
     .update({ is_leader: false })
     .eq('tournament_id', tournamentId)
+
+  if (resetError) throw new Error(`Failed to reset leaders: ${resetError.message}`)
 
   // For each team, randomly pick one player as leader
   for (const team of (teams || [])) {
     const players = (team.players as any[]) || []
     if (players.length === 0) continue
     const randomPlayer = players[Math.floor(Math.random() * players.length)]
-    await supabase
+    const { error: leaderError } = await supabase
       .from('players')
       .update({ is_leader: true })
       .eq('id', randomPlayer.id)
+
+    if (leaderError) throw new Error(`Failed to set leader for team ${team.id}: ${leaderError.message}`)
   }
 }
 
