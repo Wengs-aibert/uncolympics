@@ -3,7 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import useLobbyStore from '../stores/lobbyStore'
 import useCeremonyStore from '../stores/ceremonyStore'
-import useGameStore from '../stores/gameStore'
+import useGamePlayStore from '../stores/gamePlayStore'
+import useTitleStore from '../stores/titleStore'
+import useScoreboardStore from '../stores/scoreboardStore'
 import { fetchCeremonyData, saveGlobalTitles, updateTeamPoints, validateRoomCode } from '../lib/api'
 import { calculateGlobalTitles } from '../lib/globalTitles'
 import Confetti from '../components/animation/Confetti'
@@ -29,7 +31,13 @@ function Ceremony() {
     setCeremonyPhase,
     nextCeremonyReveal
   } = useCeremonyStore()
-  const { reset } = useGameStore()
+  const resetAll = () => {
+    useLobbyStore.getState().reset()
+    useGamePlayStore.getState().reset()
+    useTitleStore.getState().reset()
+    useCeremonyStore.getState().reset()
+    useScoreboardStore.getState().reset()
+  }
 
   const [ceremonyData, setCeremonyData] = useState<any>(null)
   const [error, setError] = useState<string | null>(null)
@@ -430,7 +438,7 @@ function Ceremony() {
             {/* Navigation Buttons */}
             <div className="max-w-lg mx-auto mt-6 space-y-3">
               <button
-                onClick={() => { reset(); navigate('/'); }}
+                onClick={() => { resetAll(); navigate('/'); }}
                 className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 px-6 py-4 rounded-lg font-bold text-lg"
               >
                 🎮 New Tournament

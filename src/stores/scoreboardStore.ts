@@ -24,6 +24,8 @@ const useScoreboardStore = create<ScoreboardStore>((set) => ({
   setSelectedPlayer: (detail) => set({ selectedPlayer: detail }),
   
   clearSelectedPlayer: () => set({ selectedPlayer: null }),
+
+  reset: () => set({ scoreboardData: null, selectedPlayer: null }),
 }))
 
 export default useScoreboardStore

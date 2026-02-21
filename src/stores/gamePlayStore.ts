@@ -101,6 +101,17 @@ const useGamePlayStore = create<GamePlayStore>((set) => ({
   
   // Legacy actions (keeping for existing functionality)
   setGame: (game) => set({ currentGame: game }),
+
+  reset: () => set({
+    currentGame: null,
+    availableGames: [],
+    pickedGames: [],
+    currentPickTeam: null,
+    currentRound: 1,
+    currentGameStats: [],
+    currentGameResult: null,
+    liveFeed: []
+  }),
 }))
 
 export default useGamePlayStore

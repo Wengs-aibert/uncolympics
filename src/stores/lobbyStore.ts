@@ -38,6 +38,7 @@ interface LobbyStore {
   
   // Reset (clears persisted state too)
   resetLobby: () => void
+  reset: () => void
   
   // Legacy actions (keeping for existing functionality)
   setTeam: (playerId: string, teamId: string) => void
@@ -116,6 +117,17 @@ const useLobbyStore = create<LobbyStore>()(persist((set) => ({
   
   // Reset — wipes Zustand state AND localStorage entry
   resetLobby: () => {
+    localStorage.removeItem('uncolympics-lobby')
+    set({
+      tournament: null,
+      currentPlayer: null,
+      players: [],
+      teams: [],
+      votes: [],
+      connectionStatus: null,
+    })
+  },
+  reset: () => {
     localStorage.removeItem('uncolympics-lobby')
     set({
       tournament: null,

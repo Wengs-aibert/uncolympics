@@ -1,7 +1,8 @@
 import { supabase } from './supabase';
 import { appNavigate } from './navigation';
-import useGameStore from '../stores/gameStore';
 import useLobbyStore from '../stores/lobbyStore';
+import useGamePlayStore from '../stores/gamePlayStore';
+import useTitleStore from '../stores/titleStore';
 import type { Tournament, Player, Team, LeaderVote, Game, PlayerStat, GameResult, Title } from '../types';
 
 export function subscribeTournament(tournamentId: string) {
@@ -12,18 +13,14 @@ export function subscribeTournament(tournamentId: string) {
       table: 'players', 
       filter: `tournament_id=eq.${tournamentId}` 
     }, (payload) => {
-      const store = useGameStore.getState();
-      const lobbyStore = useLobbyStore.getState();
+      const lobby = useLobbyStore.getState();
       
       if (payload.eventType === 'INSERT') {
-        store.addPlayer(payload.new as Player);
-        lobbyStore.addPlayer(payload.new as Player);
+        lobby.addPlayer(payload.new as Player);
       } else if (payload.eventType === 'UPDATE') {
-        store.updatePlayer(payload.new as Player);
-        lobbyStore.updatePlayer(payload.new as Player);
+        lobby.updatePlayer(payload.new as Player);
       } else if (payload.eventType === 'DELETE') {
-        store.removePlayer(payload.old.id);
-        lobbyStore.removePlayer(payload.old.id);
+        lobby.removePlayer(payload.old.id);
       }
     })
     .on('postgres_changes', {
@@ -32,18 +29,14 @@ export function subscribeTournament(tournamentId: string) {
       table: 'teams',
       filter: `tournament_id=eq.${tournamentId}`
     }, (payload) => {
-      const store = useGameStore.getState();
-      const lobbyStore = useLobbyStore.getState();
+      const lobby = useLobbyStore.getState();
       
       if (payload.eventType === 'INSERT') {
-        store.addTeam(payload.new as Team);
-        lobbyStore.addTeam(payload.new as Team);
+        lobby.addTeam(payload.new as Team);
       } else if (payload.eventType === 'UPDATE') {
-        store.updateTeam(payload.new as Team);
-        lobbyStore.updateTeam(payload.new as Team);
+        lobby.updateTeam(payload.new as Team);
       } else if (payload.eventType === 'DELETE') {
-        store.removeTeam(payload.old.id);
-        lobbyStore.removeTeam(payload.old.id);
+        lobby.removeTeam(payload.old.id);
       }
     })
     .on('postgres_changes', {
@@ -52,31 +45,21 @@ export function subscribeTournament(tournamentId: string) {
       table: 'tournaments',
       filter: `id=eq.${tournamentId}`
     }, (payload) => {
-      const store = useGameStore.getState();
-      
       if (payload.eventType === 'UPDATE') {
-        // Handle status changes (lobby→picking) and other tournament updates
         const tournament = payload.new as Tournament;
-        store.setTournament(tournament);
-        
-        // Also update lobbyStore directly (fixes sync issue)
         useLobbyStore.getState().setTournament(tournament);
 
         // Handle navigation based on tournament status changes
+        const currentUrl = window.location.pathname;
         if (tournament.status === 'team_select') {
-          const currentUrl = window.location.pathname;
           if (!currentUrl.includes('/team-select')) {
             appNavigate(`/team-select/${tournament.room_code}`);
           }
         } else if (tournament.status === 'picking') {
-          // Navigate to pick page
-          const currentUrl = window.location.pathname;
           if (!currentUrl.includes('/pick')) {
             appNavigate(`/game/${tournament.room_code}/pick`);
           }
         } else if (tournament.status === 'completed') {
-          // Navigate to ceremony
-          const currentUrl = window.location.pathname;
           if (!currentUrl.includes('/ceremony')) {
             appNavigate(`/ceremony/${tournament.room_code}`);
           }
@@ -88,19 +71,19 @@ export function subscribeTournament(tournamentId: string) {
       schema: 'public', 
       table: 'leader_votes'
     }, (payload) => {
-      const store = useGameStore.getState();
-      const teamIds = new Set(store.teams.map(t => t.id));
+      const lobby = useLobbyStore.getState();
+      const teamIds = new Set(lobby.teams.map(t => t.id));
       
       // Filter: only process votes for teams in this tournament
       const vote = (payload.eventType === 'DELETE' ? payload.old : payload.new) as LeaderVote;
       if (!teamIds.has(vote.team_id)) return;
       
       if (payload.eventType === 'INSERT') {
-        store.addVote(payload.new as LeaderVote);
+        lobby.addVote(payload.new as LeaderVote);
       } else if (payload.eventType === 'UPDATE') {
-        store.updateVote(payload.new as LeaderVote);
+        lobby.updateVote(payload.new as LeaderVote);
       } else if (payload.eventType === 'DELETE') {
-        store.removeVote(payload.old.id);
+        lobby.removeVote(payload.old.id);
       }
     })
     .on('postgres_changes', {
@@ -109,22 +92,15 @@ export function subscribeTournament(tournamentId: string) {
       table: 'games',
       filter: `tournament_id=eq.${tournamentId}`
     }, (payload) => {
-      const store = useGameStore.getState();
-      // When a new game is picked, add it to the store
-      store.addPickedGame(payload.new as Game);
+      useGamePlayStore.getState().addPickedGame(payload.new as Game);
     })
     .subscribe((status) => {
-      const store = useGameStore.getState();
-      const lobbyStore = useLobbyStore.getState();
-      if (status === 'SUBSCRIBED') {
-        store.setConnectionStatus('connected');
-        lobbyStore.setConnectionStatus('connected');
-      } else if (status === 'CLOSED') {
-        store.setConnectionStatus('disconnected');
-        lobbyStore.setConnectionStatus('disconnected');
-      } else if (status === 'CHANNEL_ERROR') {
-        store.setConnectionStatus('reconnecting');
-        lobbyStore.setConnectionStatus('reconnecting');
+      const connStatus = status === 'SUBSCRIBED' ? 'connected' 
+        : status === 'CLOSED' ? 'disconnected' 
+        : status === 'CHANNEL_ERROR' ? 'reconnecting' 
+        : null;
+      if (connStatus) {
+        useLobbyStore.getState().setConnectionStatus(connStatus);
       }
     });
     
@@ -133,7 +109,7 @@ export function subscribeTournament(tournamentId: string) {
   };
 }
 
-// Sprint 4: Game-specific subscription
+// Game-specific subscription
 export function subscribeGame(gameId: string, tournamentId: string) {
   const channel = supabase.channel(`game:${gameId}`)
     .on('postgres_changes', {
@@ -142,20 +118,18 @@ export function subscribeGame(gameId: string, tournamentId: string) {
       table: 'player_stats', 
       filter: `game_id=eq.${gameId}`
     }, (payload) => {
-      const store = useGameStore.getState();
-      
       if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
         const stat = payload.new as PlayerStat;
-        store.addGameStat(stat);
+        const gameplay = useGamePlayStore.getState();
+        gameplay.addGameStat(stat);
         
-        // Find player name for live feed
-        const player = store.players.find(p => p.id === stat.player_id);
+        const player = useLobbyStore.getState().players.find(p => p.id === stat.player_id);
         if (player) {
-          store.addFeedItem({
+          gameplay.addFeedItem({
             playerName: player.name,
             statKey: stat.stat_key,
             statValue: stat.stat_value,
-            statLabel: stat.stat_key, // Could be enhanced to map to human-readable labels
+            statLabel: stat.stat_key,
             timestamp: new Date().toISOString()
           });
         }
@@ -167,10 +141,8 @@ export function subscribeGame(gameId: string, tournamentId: string) {
       table: 'game_results', 
       filter: `game_id=eq.${gameId}`
     }, (payload) => {
-      const store = useGameStore.getState();
-      
       if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
-        store.setCurrentGameResult(payload.new as GameResult);
+        useGamePlayStore.getState().setCurrentGameResult(payload.new as GameResult);
       }
     })
     .on('postgres_changes', {
@@ -179,15 +151,12 @@ export function subscribeGame(gameId: string, tournamentId: string) {
       table: 'games', 
       filter: `id=eq.${gameId}`
     }, (payload) => {
-      const store = useGameStore.getState();
-      
       if (payload.eventType === 'UPDATE') {
         const game = payload.new as Game;
-        store.setGame(game);
+        useGamePlayStore.getState().setGame(game);
         
-        // Navigate to title reveal when status changes to 'titles'
         if (game.status === 'titles') {
-          const tournament = store.tournament;
+          const tournament = useLobbyStore.getState().tournament;
           if (tournament) {
             appNavigate(`/game/${tournament.room_code}/reveal/${gameId}`);
           }
@@ -200,21 +169,15 @@ export function subscribeGame(gameId: string, tournamentId: string) {
       table: 'titles',
       filter: `tournament_id=eq.${tournamentId}`
     }, (payload) => {
-      const store = useGameStore.getState();
       const title = payload.new as Title;
       
-      // Check if this title belongs to the current game
       if (title.game_id === gameId) {
-        // Find player name for the title
-        const player = store.players.find(p => p.id === title.player_id);
-        const titleWithPlayerName = {
+        const player = useLobbyStore.getState().players.find(p => p.id === title.player_id);
+        const titleStore = useTitleStore.getState();
+        titleStore.setGameTitles([...titleStore.gameTitles, {
           ...title,
           playerName: player?.name || 'Unknown Player'
-        };
-        
-        // Add to gameTitles array
-        const updatedTitles = [...store.gameTitles, titleWithPlayerName];
-        store.setGameTitles(updatedTitles);
+        }]);
       }
     })
     .on('postgres_changes', {
@@ -223,20 +186,15 @@ export function subscribeGame(gameId: string, tournamentId: string) {
       table: 'teams',
       filter: `tournament_id=eq.${tournamentId}`
     }, (payload) => {
-      const store = useGameStore.getState();
-      const updatedTeam = payload.new as Team;
-      
-      // Update team in store (this will update total_points)
-      store.updateTeam(updatedTeam);
+      useLobbyStore.getState().updateTeam(payload.new as Team);
     })
     .subscribe((status) => {
-      const store = useGameStore.getState();
-      if (status === 'SUBSCRIBED') {
-        store.setConnectionStatus('connected');
-      } else if (status === 'CLOSED') {
-        store.setConnectionStatus('disconnected');
-      } else if (status === 'CHANNEL_ERROR') {
-        store.setConnectionStatus('reconnecting');
+      const connStatus = status === 'SUBSCRIBED' ? 'connected' 
+        : status === 'CLOSED' ? 'disconnected' 
+        : status === 'CHANNEL_ERROR' ? 'reconnecting' 
+        : null;
+      if (connStatus) {
+        useLobbyStore.getState().setConnectionStatus(connStatus);
       }
     });
     

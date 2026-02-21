@@ -5,7 +5,7 @@ import useLobbyStore from '../stores/lobbyStore'
 import useTitleStore from '../stores/titleStore'
 import { fetchTitlesForGame, saveTitles, updateTeamPoints, advanceToNextRound } from '../lib/api'
 import { calculateTitles } from '../lib/titles'
-import { subscribeGame, subscribeTournament } from '../lib/sync'
+import { subscribeGame } from '../lib/sync'
 import { useReconnect } from '../hooks/useReconnect'
 
 function TitleReveal() {
@@ -46,15 +46,13 @@ function TitleReveal() {
     if (!gameId || !roomCode || !tournament || !currentPlayer) return
     
     let gameCleanup: (() => void) | undefined
-    let tournamentCleanup: (() => void) | undefined
     
     const initialize = async () => {
       try {
         setError(null)
         
-        // Set up subscriptions
+        // Set up game-specific subscription (tournament sub handled by useReconnect)
         gameCleanup = subscribeGame(gameId, tournament.id)
-        tournamentCleanup = subscribeTournament(tournament.id)
         
         // Fetch existing titles
         const existingTitles = await fetchTitlesForGame(gameId)
@@ -107,7 +105,6 @@ function TitleReveal() {
     
     return () => {
       gameCleanup?.()
-      tournamentCleanup?.()
     }
   }, [gameId, roomCode, tournament, currentPlayer, setGameTitles])
   

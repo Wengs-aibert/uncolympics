@@ -61,6 +61,15 @@ const useTitleStore = create<TitleStore>((set) => ({
   addTitle: (title) => set((state) => ({
     titles: [...state.titles, title]
   })),
+
+  reset: () => set({
+    gameTitles: [],
+    revealIndex: 0,
+    revealComplete: false,
+    isLastGame: false,
+    titles: [],
+    playerStats: []
+  }),
 }))
 
 export default useTitleStore

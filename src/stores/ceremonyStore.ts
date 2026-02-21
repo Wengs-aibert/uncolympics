@@ -38,6 +38,14 @@ const useCeremonyStore = create<CeremonyStore>((set) => ({
   nextCeremonyReveal: () => set((state) => ({
     ceremonyRevealIndex: state.ceremonyRevealIndex + 1
   })),
+
+  reset: () => set({
+    globalTitles: [],
+    winningTeam: null,
+    isTied: false,
+    ceremonyPhase: 'loading',
+    ceremonyRevealIndex: 0
+  }),
 }))
 
 export default useCeremonyStore
