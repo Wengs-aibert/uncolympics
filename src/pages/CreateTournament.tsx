@@ -101,7 +101,7 @@ function CreateTournament() {
           value={refereeName}
           onChange={(e) => setRefereeName(e.target.value)}
           placeholder="Ref Name"
-          className="seamless-input text-8xl md:text-9xl font-heading text-primary text-center w-full"
+          className="seamless-input text-4xl sm:text-5xl md:text-6xl font-heading text-primary text-center w-full"
           autoComplete="off"
         />
       </motion.div>
@@ -125,7 +125,7 @@ function CreateTournament() {
           placeholder="Games"
           min={1}
           max={10}
-          className="seamless-input text-8xl md:text-9xl font-heading text-primary text-center w-full"
+          className="seamless-input text-4xl sm:text-5xl md:text-6xl font-heading text-primary text-center w-full"
           autoComplete="off"
         />
       </motion.div>
@@ -143,7 +143,7 @@ function CreateTournament() {
           onChange={(e) => setRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 5))}
           placeholder="Lobby #"
           maxLength={5}
-          className="seamless-input text-8xl md:text-9xl font-heading text-primary text-center w-full tracking-wider uppercase"
+          className="seamless-input text-4xl sm:text-5xl md:text-6xl font-heading text-primary text-center w-full tracking-wider uppercase"
           autoComplete="off"
         />
       </motion.div>
