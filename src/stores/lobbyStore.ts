@@ -36,6 +36,9 @@ interface LobbyStore {
   // Connection status
   setConnectionStatus: (status: 'connected' | 'reconnecting' | 'disconnected') => void
   
+  // Reset (clears persisted state too)
+  resetLobby: () => void
+  
   // Legacy actions (keeping for existing functionality)
   setTeam: (playerId: string, teamId: string) => void
 }
@@ -110,6 +113,19 @@ const useLobbyStore = create<LobbyStore>()(persist((set) => ({
   
   // Connection status
   setConnectionStatus: (status) => set({ connectionStatus: status }),
+  
+  // Reset — wipes Zustand state AND localStorage entry
+  resetLobby: () => {
+    localStorage.removeItem('uncolympics-lobby')
+    set({
+      tournament: null,
+      currentPlayer: null,
+      players: [],
+      teams: [],
+      votes: [],
+      connectionStatus: null,
+    })
+  },
   
   // Legacy actions (keeping for existing functionality)
   setTeam: (playerId, teamId) => set((state) => ({

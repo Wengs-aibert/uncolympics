@@ -10,9 +10,10 @@ import { SwipeHint } from '../components/ui/SwipeHint'
 
 function CreateTournament() {
   const navigate = useNavigate()
-  const { setTournament, setCurrentPlayer } = useLobbyStore()
+  const { setTournament, setCurrentPlayer, resetLobby } = useLobbyStore()
   
   useEffect(() => {
+    resetLobby()
     document.title = 'UNCOLYMPICS - Create Tournament';
   }, []);
   

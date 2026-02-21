@@ -1,10 +1,14 @@
 import { Link } from 'react-router-dom'
 import { useEffect } from 'react'
-import { useReconnect } from '../hooks/useReconnect'
+import useLobbyStore from '../stores/lobbyStore'
 
 function Home() {
-  // Attempt to reconnect user on page load
-  useReconnect()
+  const resetLobby = useLobbyStore(s => s.resetLobby)
+  
+  // Clear any stale persisted state when landing on Home
+  useEffect(() => {
+    resetLobby()
+  }, [])
   
   useEffect(() => {
     document.title = 'UNCOLYMPICS - Home';
