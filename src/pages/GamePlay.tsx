@@ -181,24 +181,39 @@ function GamePlay() {
   };
 
   const handleEndGame = async () => {
-    if (!gameId || !tournament) return;
+    console.log('🎮 handleEndGame called');
+    console.log('🎮 gameId:', gameId);
+    console.log('🎮 tournament:', tournament?.id, tournament?.room_code);
+    console.log('🎮 currentPlayer:', currentPlayer?.role);
+    console.log('🎮 refereeValues:', refereeValues);
+    
+    if (!gameId || !tournament) {
+      console.error('🎮 Early return: missing gameId or tournament');
+      setError('Missing game ID or tournament data');
+      return;
+    }
     
     try {
+      console.log('🎮 Starting end game process...');
       setSubmitting(true);
       setError(null);
       
       // Submit referee result first if there are referee values
       if (Object.keys(refereeValues).length > 0) {
+        console.log('🎮 Submitting game result first...');
         const winningTeamId = refereeValues.winner || null;
         await submitGameResult(gameId, winningTeamId, refereeValues);
+        console.log('🎮 Game result submitted');
       }
       
       // End the game
+      console.log('🎮 Calling endGame API...');
       await endGame(tournament.id, gameId);
+      console.log('🎮 End game API completed successfully');
       setShowEndGameModal(false);
       
     } catch (err) {
-      console.error('Failed to end game:', err);
+      console.error('🎮 Failed to end game:', err);
       setError(err instanceof Error ? err.message : 'Failed to end game');
     } finally {
       setSubmitting(false);
@@ -360,7 +375,12 @@ function GamePlay() {
             
             <div className="text-center">
               <button
-                onClick={() => setShowEndGameModal(true)}
+                onClick={() => {
+                  console.log('🎮 END GAME button clicked');
+                  console.log('🎮 isReferee:', isReferee);
+                  console.log('🎮 submitting:', submitting);
+                  setShowEndGameModal(true);
+                }}
                 disabled={submitting}
                 className="bg-red hover:scale-105 text-primary px-8 py-3 rounded-lg text-lg font-semibold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -387,7 +407,10 @@ function GamePlay() {
                   Cancel
                 </button>
                 <button
-                  onClick={handleEndGame}
+                  onClick={() => {
+                    console.log('🎮 Modal End Game button clicked');
+                    handleEndGame();
+                  }}
                   disabled={submitting}
                   className="flex-1 bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
