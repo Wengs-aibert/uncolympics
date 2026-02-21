@@ -198,8 +198,12 @@ function CreateTournament() {
 
       {/* Swipe hint */}
       <SwipeHint 
-        visible={!loading && formData.refereeName.trim() !== '' && formData.roomCode.trim() !== ''} 
-        text="↑ Swipe up"
+        visible={!loading} 
+        text={
+          formData.refereeName.trim() !== '' && formData.roomCode.trim() !== ''
+            ? "↑ Swipe up to create"
+            : "Fill ref name & lobby code first"
+        }
       />
 
     </div>
