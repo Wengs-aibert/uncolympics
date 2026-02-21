@@ -23,7 +23,7 @@ export const SwipeHint = ({
             repeat: Infinity, 
             ease: 'easeInOut' 
           }}
-          className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 text-gray-500 text-sm font-light ${className}`}
+          className={`fixed bottom-8 left-1/2 transform -translate-x-1/2 text-gray-500 text-xl font-light ${className}`}
         >
           {text}
         </motion.div>
