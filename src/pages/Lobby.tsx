@@ -15,6 +15,7 @@ import { useSwipeUp } from '../hooks/useSwipeUp'
 import { useSwipeDown } from '../hooks/useSwipeDown'
 import { SwipeHint } from '../components/ui/SwipeHint'
 import { ConfirmModal } from '../components/ui/ConfirmModal'
+import { useReconnect } from '../hooks/useReconnect'
 
 function Lobby() {
   const { roomCode } = useParams<{ roomCode: string }>()
@@ -22,6 +23,10 @@ function Lobby() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showConfirmModal, setShowConfirmModal] = useState(false)
+  const [isReconnecting, setIsReconnecting] = useState(true)
+
+  // Use reconnect hook without navigation to repopulate state on refresh
+  useReconnect(false)
 
   const {
     tournament,
@@ -34,13 +39,19 @@ function Lobby() {
     setVotes
   } = useLobbyStore()
 
-  // Load lobby state on mount
+  // Load lobby state on mount or when tournament becomes available
   useEffect(() => {
-    if (!tournament?.id) return
+    if (!tournament?.id) {
+      // If no tournament yet, we're still reconnecting
+      setIsReconnecting(true)
+      setIsLoading(true)
+      return
+    }
 
     const loadLobbyState = async () => {
       try {
         setIsLoading(true)
+        setIsReconnecting(false)
         const state = await fetchLobbyState(tournament.id)
         setTournament(state.tournament)
         setPlayers(state.players)
@@ -57,6 +68,7 @@ function Lobby() {
         setError(err instanceof Error ? err.message : 'Failed to load lobby')
       } finally {
         setIsLoading(false)
+        setIsReconnecting(false)
       }
     }
 
@@ -144,14 +156,21 @@ function Lobby() {
     enabled: true // Always enabled for exit functionality
   })
 
-  if (isLoading) {
-    return <div className="min-h-screen" />;
-  }
-
-  if (!tournament || !currentPlayer) {
+  // Show loading while reconnecting or loading lobby state
+  if (isLoading || isReconnecting || !tournament) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl text-red-300">Failed to load tournament</div>
+        <div className="text-lg text-gray-400">
+          {isReconnecting ? 'Reconnecting...' : 'Loading lobby...'}
+        </div>
+      </div>
+    );
+  }
+
+  if (!currentPlayer) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-xl text-red-300">Failed to load player data</div>
       </div>
     )
   }

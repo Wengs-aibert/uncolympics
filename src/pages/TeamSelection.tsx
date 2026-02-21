@@ -95,7 +95,7 @@ function TeamSelection() {
   const [lockInOrder, setLockInOrder] = useState<Record<string, number>>({})
 
   // Get players sorted by lock-in order for each team
-  const getSortedTeamPlayers = (teamPlayers: typeof teamAPlayers) => {
+  const getSortedTeamPlayers = (teamPlayers: any[]) => {
     return teamPlayers.sort((a, b) => {
       const aTime = lockInOrder[a.id] || 0
       const bTime = lockInOrder[b.id] || 0

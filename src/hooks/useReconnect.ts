@@ -5,7 +5,7 @@ import { reconnectPlayer, fetchLobbyState } from '../lib/api'
 import { subscribeTournament } from '../lib/sync'
 import useLobbyStore from '../stores/lobbyStore'
 
-export function useReconnect() {
+export function useReconnect(shouldNavigate: boolean = true) {
   const navigate = useNavigate()
   const { setTournament, setCurrentPlayer, setPlayers, setTeams, setVotes } = useLobbyStore()
 
@@ -35,26 +35,28 @@ export function useReconnect() {
             }
           }
           
-          // Navigate based on tournament status
-          switch (tournament.status) {
-            case 'lobby':
-              navigate(`/lobby/${tournament.room_code}`)
-              break
-            case 'picking':
-              navigate(`/game/${tournament.room_code}/pick`)
-              break
-            case 'playing':
-              // Would need current game info to navigate to specific game
-              navigate(`/lobby/${tournament.room_code}`)
-              break
-            case 'scoring':
-              navigate(`/scoreboard/${tournament.room_code}`)
-              break
-            case 'completed':
-              navigate(`/ceremony/${tournament.room_code}`)
-              break
-            default:
-              navigate(`/lobby/${tournament.room_code}`)
+          // Navigate based on tournament status (only if shouldNavigate is true)
+          if (shouldNavigate) {
+            switch (tournament.status) {
+              case 'lobby':
+                navigate(`/lobby/${tournament.room_code}`)
+                break
+              case 'picking':
+                navigate(`/game/${tournament.room_code}/pick`)
+                break
+              case 'playing':
+                // Would need current game info to navigate to specific game
+                navigate(`/lobby/${tournament.room_code}`)
+                break
+              case 'scoring':
+                navigate(`/scoreboard/${tournament.room_code}`)
+                break
+              case 'completed':
+                navigate(`/ceremony/${tournament.room_code}`)
+                break
+              default:
+                navigate(`/lobby/${tournament.room_code}`)
+            }
           }
         }
         // If no result, do nothing (stay on current page)
@@ -65,5 +67,5 @@ export function useReconnect() {
     }
 
     attemptReconnect()
-  }, [navigate, setTournament, setCurrentPlayer, setPlayers, setTeams, setVotes])
+  }, [navigate, setTournament, setCurrentPlayer, setPlayers, setTeams, setVotes, shouldNavigate])
 }
