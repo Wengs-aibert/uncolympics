@@ -63,16 +63,15 @@ export async function pickGame(
   if (teamId !== tournament.current_pick_team) throw new Error("It is not this team's turn to pick")
 
   const { data: player, error: playerError } = await supabase
-    .from('players').select('*').eq('id', playerId).eq('team_id', teamId).single()
-  if (playerError || !player) throw new Error(`Failed to fetch player: ${playerError?.message}`)
+    .from('players').select('*').eq('id', playerId).eq('team_id', teamId).maybeSingle()
+  if (playerError) throw new Error(`Failed to fetch player: ${playerError.message}`)
+  if (!player) throw new Error(`Player not found or not in the specified team`)
   if (!player.is_leader) throw new Error('Only team leaders can pick games')
 
   const { data: existingGame, error: existingGameError } = await supabase
-    .from('games').select('id').eq('tournament_id', tournamentId).eq('game_type_id', gameTypeId).single()
+    .from('games').select('id').eq('tournament_id', tournamentId).eq('game_type_id', gameTypeId).maybeSingle()
+  if (existingGameError) throw new Error(`Failed to check existing games: ${existingGameError.message}`)
   if (existingGame) throw new Error('This game has already been picked')
-  if (existingGameError && existingGameError.code !== 'PGRST116') {
-    throw new Error(`Failed to check existing games: ${existingGameError.message}`)
-  }
 
   const { count: gameCount, error: countError } = await supabase
     .from('games').select('id', { count: 'exact' }).eq('tournament_id', tournamentId)
@@ -88,8 +87,9 @@ export async function pickGame(
   if (gameInsertError || !newGame) throw new Error(`Failed to create game: ${gameInsertError?.message}`)
 
   const { data: otherTeam, error: otherTeamError } = await supabase
-    .from('teams').select('id').eq('tournament_id', tournamentId).neq('id', teamId).single()
-  if (otherTeamError || !otherTeam) throw new Error(`Failed to find other team: ${otherTeamError?.message}`)
+    .from('teams').select('id').eq('tournament_id', tournamentId).neq('id', teamId).maybeSingle()
+  if (otherTeamError) throw new Error(`Failed to find other team: ${otherTeamError.message}`)
+  if (!otherTeam) throw new Error(`No other team found in tournament`)
 
   const { data: updatedTournamentList, error: updateError } = await supabase
     .from('tournaments')
@@ -113,8 +113,8 @@ export async function fetchGameState(gameId: string): Promise<{
   if (statsError) throw new Error(`Failed to fetch stats: ${statsError.message}`)
 
   const { data: result, error: resultError } = await supabase
-    .from('game_results').select('*').eq('game_id', gameId).single()
-  if (resultError && resultError.code !== 'PGRST116') {
+    .from('game_results').select('*').eq('game_id', gameId).maybeSingle()
+  if (resultError) {
     throw new Error(`Failed to fetch result: ${resultError.message}`)
   }
 

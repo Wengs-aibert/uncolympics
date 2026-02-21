@@ -113,8 +113,9 @@ export async function advanceToNextRound(tournamentId: string, gameId: string): 
   if (totalGamesCompleted < tournament.num_games) {
     const { data: otherTeam, error: otherTeamError } = await supabase
       .from('teams').select('id').eq('tournament_id', tournamentId)
-      .neq('id', tournament.current_pick_team).single()
-    if (otherTeamError || !otherTeam) throw new Error(`Failed to find other team: ${otherTeamError?.message}`)
+      .neq('id', tournament.current_pick_team).maybeSingle()
+    if (otherTeamError) throw new Error(`Failed to find other team: ${otherTeamError.message}`)
+    if (!otherTeam) throw new Error(`No other team found in tournament`)
 
     const { data: updatedList, error: updateError } = await supabase
       .from('tournaments')
