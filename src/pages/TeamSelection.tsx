@@ -5,6 +5,7 @@ import useLobbyStore from '../stores/lobbyStore'
 import { subscribeTournament } from '../lib/sync'
 import { fetchLobbyState, joinTeam, startTournament, assignRandomLeaders } from '../lib/api'
 import { toast } from '../lib/toast'
+import { useReconnect } from '../hooks/useReconnect'
 
 type Phase = 'choosing' | 'locked' | 'shuffling' | 'revealed'
 
@@ -16,6 +17,10 @@ function TeamSelection() {
   const [isLockedIn, setIsLockedIn] = useState(false)
   const [shuffleNames, setShuffleNames] = useState<Record<string, string[]>>({})
   const [revealedLeaders, setRevealedLeaders] = useState<Record<string, string>>({}) // teamId -> playerId
+  const [isReconnecting, setIsReconnecting] = useState(true)
+
+  // Use reconnect hook to repopulate state on refresh
+  useReconnect(false)
 
   const {
     tournament,
@@ -30,11 +35,15 @@ function TeamSelection() {
     connectionStatus,
   } = useLobbyStore()
 
-  // Load state on mount
+  // Load state on mount or when tournament becomes available (after reconnect)
   useEffect(() => {
-    if (!tournament?.id) return
+    if (!tournament?.id) {
+      setIsReconnecting(true)
+      return
+    }
     const load = async () => {
       try {
+        setIsReconnecting(false)
         const state = await fetchLobbyState(tournament.id)
         setTournament(state.tournament)
         setPlayers(state.players)
@@ -273,7 +282,9 @@ function TeamSelection() {
   if (!tournament || !currentPlayer) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <div className="text-xl text-red-300">Failed to load team selection</div>
+        <div className="text-lg text-gray-400">
+          {isReconnecting ? 'Reconnecting...' : 'Failed to load team selection'}
+        </div>
       </div>
     )
   }

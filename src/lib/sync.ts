@@ -13,16 +13,17 @@ export function subscribeTournament(tournamentId: string) {
       filter: `tournament_id=eq.${tournamentId}` 
     }, (payload) => {
       const store = useGameStore.getState();
+      const lobbyStore = useLobbyStore.getState();
       
       if (payload.eventType === 'INSERT') {
-        // Add new player to store
         store.addPlayer(payload.new as Player);
+        lobbyStore.addPlayer(payload.new as Player);
       } else if (payload.eventType === 'UPDATE') {
-        // Update existing player in store (team change, leader change)
         store.updatePlayer(payload.new as Player);
+        lobbyStore.updatePlayer(payload.new as Player);
       } else if (payload.eventType === 'DELETE') {
-        // Remove player from store
         store.removePlayer(payload.old.id);
+        lobbyStore.removePlayer(payload.old.id);
       }
     })
     .on('postgres_changes', {
@@ -32,16 +33,17 @@ export function subscribeTournament(tournamentId: string) {
       filter: `tournament_id=eq.${tournamentId}`
     }, (payload) => {
       const store = useGameStore.getState();
+      const lobbyStore = useLobbyStore.getState();
       
       if (payload.eventType === 'INSERT') {
-        // Add new team to store
         store.addTeam(payload.new as Team);
+        lobbyStore.addTeam(payload.new as Team);
       } else if (payload.eventType === 'UPDATE') {
-        // Update existing team in store
         store.updateTeam(payload.new as Team);
+        lobbyStore.updateTeam(payload.new as Team);
       } else if (payload.eventType === 'DELETE') {
-        // Remove team from store
         store.removeTeam(payload.old.id);
+        lobbyStore.removeTeam(payload.old.id);
       }
     })
     .on('postgres_changes', {
@@ -113,12 +115,16 @@ export function subscribeTournament(tournamentId: string) {
     })
     .subscribe((status) => {
       const store = useGameStore.getState();
+      const lobbyStore = useLobbyStore.getState();
       if (status === 'SUBSCRIBED') {
         store.setConnectionStatus('connected');
+        lobbyStore.setConnectionStatus('connected');
       } else if (status === 'CLOSED') {
         store.setConnectionStatus('disconnected');
+        lobbyStore.setConnectionStatus('disconnected');
       } else if (status === 'CHANNEL_ERROR') {
         store.setConnectionStatus('reconnecting');
+        lobbyStore.setConnectionStatus('reconnecting');
       }
     });
     

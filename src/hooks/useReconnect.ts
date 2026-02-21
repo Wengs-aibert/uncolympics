@@ -20,26 +20,28 @@ export function useReconnect(shouldNavigate: boolean = true) {
           setTournament(tournament)
           setCurrentPlayer(player)
           
-          // If reconnecting to lobby, also load lobby state and setup real-time sync
-          if (tournament.status === 'lobby') {
+          // Navigate based on tournament status (only if shouldNavigate is true)
+          // Load full lobby state and setup sync for any active status
+          if (['lobby', 'team_select', 'picking'].includes(tournament.status)) {
             try {
               const lobbyState = await fetchLobbyState(tournament.id)
               setPlayers(lobbyState.players)
               setTeams(lobbyState.teams)
               setVotes(lobbyState.votes)
-              
-              // Setup real-time sync for lobby
               subscribeTournament(tournament.id)
             } catch (error) {
-              console.error('Failed to load lobby state on reconnect:', error)
+              console.error('Failed to load state on reconnect:', error)
             }
           }
-          
+
           // Navigate based on tournament status (only if shouldNavigate is true)
           if (shouldNavigate) {
             switch (tournament.status) {
               case 'lobby':
                 navigate(`/lobby/${tournament.room_code}`)
+                break
+              case 'team_select':
+                navigate(`/team-select/${tournament.room_code}`)
                 break
               case 'picking':
                 navigate(`/game/${tournament.room_code}/pick`)
