@@ -8,7 +8,15 @@ export interface Tournament {
   time_est_min: number
   referee_id: string
   current_pick_team: string | null
+  dice_roll_data: DiceRollData | null
   created_at: string
+}
+
+export interface DiceRollData {
+  picks: Record<string, number>  // teamId -> chosen number (1-6)
+  target: number | null          // random target (1-6), set after both pick
+  winnerId: string | null        // winning team id
+  round: number                  // roll round (1+, increments on tie)
 }
 
 export interface Player {

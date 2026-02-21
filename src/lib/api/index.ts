@@ -8,3 +8,4 @@ export { saveTitles, saveGlobalTitles, updateTeamPoints, fetchTitlesForGame, adv
 export { fetchScoreboard, fetchPlayerDetail } from './scoreboard'
 export { fetchCeremonyData } from './ceremony'
 export { fetchTournamentHistory, fetchTournamentDetail } from './history'
+export { submitDicePick, resetDiceRoll, confirmDiceWinner } from './diceroll'

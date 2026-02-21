@@ -6,6 +6,7 @@ import useGamePlayStore from '../stores/gamePlayStore'
 import { subscribeTournament } from '../lib/sync'
 import { fetchAvailableGames, fetchPickState, pickGame } from '../lib/api'
 import CustomGameCreator from '../components/game/CustomGameCreator'
+import DiceRoll from '../components/game/DiceRoll'
 import type { GameType, Game } from '../types'
 
 interface ConfirmModalProps {
@@ -68,6 +69,7 @@ function GamePick() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showCustomGameCreator, setShowCustomGameCreator] = useState(false)
+  const [diceRollDone, setDiceRollDone] = useState(false)
   
   const { tournament, currentPlayer, teams, connectionStatus } = useLobbyStore()
   const {
@@ -193,6 +195,20 @@ function GamePick() {
   const isCurrentLeader = currentPlayer?.id === currentLeader?.id
   const isReferee = currentPlayer?.role === 'referee'
   const totalRounds = tournament?.num_games || 0
+
+  // Show dice roll on first round if no games picked yet and roll not complete
+  const needsDiceRoll = currentRound === 1 
+    && pickedGames.length === 0 
+    && !diceRollDone 
+    && !tournament?.dice_roll_data?.winnerId
+
+  if (needsDiceRoll) {
+    return (
+      <div className="min-h-screen app-container">
+        <DiceRoll onComplete={() => setDiceRollDone(true)} />
+      </div>
+    )
+  }
   
   return (
     <div className="min-h-screen app-container">
